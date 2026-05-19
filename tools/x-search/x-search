@@ -1,0 +1,240 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["httpx>=0.27"]
+# ///
+"""x-search — xAI x_search Agent Tool wrapper, CLI only.
+
+Subcommands:
+  x-search search QUERY [opts]    Search posts by keyword / hashtag / topic.
+  x-search user   USER  [opts]    Recent posts from a specific user.
+
+Required env:
+  XAI_API_KEY                     Your xAI API key.
+  XAI_MODEL                       Optional override (default: grok-4.3).
+
+Used as a Claude Code skill (daikw:x-search) and from shell / cron / scripts
+directly. No MCP server — progressive disclosure via SKILL.md is preferred
+over crowding the LLM tool list.
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import os
+import sys
+from typing import Optional
+
+import httpx
+
+XAI_API_BASE = "https://api.x.ai/v1"
+# grok-4-1-fast is deprecated since 2026-05-15 and silently redirects to
+# grok-4.3 at grok-4.3 pricing. Pin the explicit current name to avoid the
+# hidden redirect and decouple from xAI's deprecation policy. Model names
+# use dot-separated minor versions (e.g. grok-4.3, grok-4.20-*), not hyphen.
+XAI_MODEL = os.environ.get("XAI_MODEL", "grok-4.3")
+DEFAULT_TIMEOUT = 120.0
+MAX_RESULTS_DEFAULT = 10
+
+
+def _get_api_key() -> str:
+    key = os.environ.get("XAI_API_KEY", "")
+    if not key:
+        raise RuntimeError(
+            "XAI_API_KEY not set. Export it directly, or use your preferred "
+            "env-var injection mechanism (direnv / dotenvx / 1Password CLI / "
+            "systemd env / etc.) to load it before running x-search."
+        )
+    return key
+
+
+async def _call_responses_api(
+    user_prompt: str,
+    *,
+    x_search_config: Optional[dict] = None,
+) -> str:
+    api_key = _get_api_key()
+    x_search_tool: dict = {"type": "x_search"}
+    if x_search_config:
+        x_search_tool.update(x_search_config)
+    body = {
+        "model": XAI_MODEL,
+        "input": [{"role": "user", "content": user_prompt}],
+        "tools": [x_search_tool],
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+        resp = await client.post(f"{XAI_API_BASE}/responses", headers=headers, json=body)
+        resp.raise_for_status()
+        data = resp.json()
+
+    text_parts: list[str] = []
+    for item in data.get("output", []):
+        if item.get("type") == "message":
+            for content in item.get("content", []):
+                if content.get("type") == "output_text":
+                    text_parts.append(content.get("text", ""))
+        elif isinstance(item.get("text"), str):
+            text_parts.append(item["text"])
+
+    if text_parts:
+        return "\n".join(text_parts)
+    return json.dumps(data, indent=2, ensure_ascii=False)
+
+
+def _handle_error(e: Exception) -> str:
+    if isinstance(e, httpx.HTTPStatusError):
+        status = e.response.status_code
+        if status == 401:
+            return json.dumps(
+                {"error": "Authentication failed. Check XAI_API_KEY.", "status": 401}
+            )
+        if status == 429:
+            return json.dumps(
+                {"error": "Rate limit exceeded. Please wait before retrying.", "status": 429}
+            )
+        try:
+            detail = e.response.json()
+        except Exception:
+            detail = e.response.text
+        return json.dumps({"error": f"API failed status={status}", "detail": str(detail)})
+    if isinstance(e, httpx.TimeoutException):
+        return json.dumps({"error": "Request timed out. Try again later."})
+    if isinstance(e, RuntimeError):
+        return json.dumps({"error": str(e)})
+    return json.dumps({"error": f"{type(e).__name__}: {e}"})
+
+
+def _build_x_search_config(
+    *,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    allowed_handles: Optional[list[str]] = None,
+    excluded_handles: Optional[list[str]] = None,
+) -> Optional[dict]:
+    cfg: dict = {}
+    if from_date:
+        cfg["from_date"] = from_date
+    if to_date:
+        cfg["to_date"] = to_date
+    if allowed_handles:
+        cfg["allowed_x_handles"] = allowed_handles
+    if excluded_handles:
+        cfg["excluded_x_handles"] = excluded_handles
+    return cfg or None
+
+
+async def search_posts(
+    query: str,
+    *,
+    max_results: int = MAX_RESULTS_DEFAULT,
+    language: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    response_format: str = "markdown",
+) -> str:
+    try:
+        lang_part = f" Filter to {language} language posts only." if language else ""
+        fmt = "JSON" if response_format == "json" else "markdown"
+        prompt = (
+            f"Search X (Twitter) for posts about: {query}\n"
+            f"Return up to {max_results} recent and relevant posts.{lang_part}\n"
+            f"For each post include: author @username, display name, post text, "
+            f"date/time, and engagement metrics (likes, reposts, replies) if available.\n"
+            f"Format the output as {fmt}."
+        )
+        cfg = _build_x_search_config(from_date=from_date, to_date=to_date)
+        return await _call_responses_api(prompt, x_search_config=cfg)
+    except Exception as e:
+        return _handle_error(e)
+
+
+async def get_user_posts(
+    username: str,
+    *,
+    max_results: int = MAX_RESULTS_DEFAULT,
+    topic_filter: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    response_format: str = "markdown",
+) -> str:
+    try:
+        topic_part = f" Focus on posts related to: {topic_filter}." if topic_filter else ""
+        fmt = "JSON" if response_format == "json" else "markdown"
+        prompt = (
+            f"Find recent posts from X (Twitter) user @{username}.\n"
+            f"Return up to {max_results} of their most recent posts.{topic_part}\n"
+            f"For each post include: post text, date/time, and engagement metrics "
+            f"(likes, reposts, replies) if available.\n"
+            f"Format the output as {fmt}."
+        )
+        cfg = _build_x_search_config(
+            from_date=from_date, to_date=to_date, allowed_handles=[username]
+        )
+        return await _call_responses_api(prompt, x_search_config=cfg)
+    except Exception as e:
+        return _handle_error(e)
+
+
+def _limit(value: str) -> int:
+    n = int(value)
+    if not 1 <= n <= 30:
+        raise argparse.ArgumentTypeError("--limit must be between 1 and 30")
+    return n
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="x-search",
+        description="xAI x_search Agent Tool wrapper. Searches X (Twitter) via Grok.",
+    )
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("search", help="Search posts by keyword / hashtag / topic")
+    p.add_argument("query", help="Search query (keywords, hashtags, or natural language)")
+    p.add_argument("--limit", "-n", type=_limit, default=MAX_RESULTS_DEFAULT, metavar="1-30")
+    p.add_argument("--language", "-l", help="e.g. 'ja' or 'en'")
+    p.add_argument("--from-date", dest="from_date", metavar="YYYY-MM-DD")
+    p.add_argument("--to-date", dest="to_date", metavar="YYYY-MM-DD")
+    p.add_argument("--format", choices=["markdown", "json"], default="markdown")
+
+    p = sub.add_parser("user", help="Recent posts from a specific user")
+    p.add_argument("username", help="username without @")
+    p.add_argument("--limit", "-n", type=_limit, default=MAX_RESULTS_DEFAULT, metavar="1-30")
+    p.add_argument("--filter", dest="topic_filter", help="optional topic filter")
+    p.add_argument("--from-date", dest="from_date", metavar="YYYY-MM-DD")
+    p.add_argument("--to-date", dest="to_date", metavar="YYYY-MM-DD")
+    p.add_argument("--format", choices=["markdown", "json"], default="markdown")
+
+    return parser
+
+
+def main() -> int:
+    args = _build_parser().parse_args()
+    if args.cmd == "search":
+        print(asyncio.run(search_posts(
+            args.query,
+            max_results=args.limit,
+            language=args.language,
+            from_date=args.from_date,
+            to_date=args.to_date,
+            response_format=args.format,
+        )))
+    elif args.cmd == "user":
+        print(asyncio.run(get_user_posts(
+            args.username.lstrip("@"),
+            max_results=args.limit,
+            topic_filter=args.topic_filter,
+            from_date=args.from_date,
+            to_date=args.to_date,
+            response_format=args.format,
+        )))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
