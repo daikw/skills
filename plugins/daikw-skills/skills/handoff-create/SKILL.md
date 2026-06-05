@@ -1,7 +1,7 @@
 ---
 name: handoff-create
 description: "セッション引き継ぎ用の HANDOFF.md を生成する。コンテキストが大きくなったとき、作業を中断するとき、別のエージェントに引き継ぐときに使う。キーワード: handoff, 引き継ぎ, セッション終了, コンテキスト引き継ぎ"
-disable-model-invocation: true
+disable-model-invocation: false
 user-invocable: true
 argument-hint: "[出力先パス (省略時: ./HANDOFF.md)]"
 allowed-tools:

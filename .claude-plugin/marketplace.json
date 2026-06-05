@@ -12,7 +12,7 @@
       "name": "daikw",
       "description": "Personal Claude Code skills curated by daikw",
       "version": "0.1.0",
-      "source": "./",
+      "source": "./plugins/daikw-skills",
       "category": "productivity"
     }
   ]

@@ -2,7 +2,7 @@
 name: commit-push
 description: "jj または git リポジトリでコミットとプッシュを行う。VCS を自動判定して適切なコマンドを実行する。キーワード: commit, push, コミット, プッシュ, jj, git"
 user-invocable: true
-disable-model-invocation: true
+disable-model-invocation: false
 argument-hint: "[コミットメッセージ (省略時は diff を見て自動生成)]"
 allowed-tools:
   - Bash

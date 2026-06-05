@@ -1,0 +1,35 @@
+{
+  "name": "daikw-skills",
+  "version": "0.1.0+codex.20260605080852",
+  "description": "Personal Codex skills curated by daikw.",
+  "author": {
+    "name": "daikw",
+    "url": "https://github.com/daikw"
+  },
+  "homepage": "https://github.com/daikw/skills",
+  "repository": "https://github.com/daikw/skills",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "codex",
+    "personal-workflows"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "daikw Skills",
+    "shortDescription": "Personal Codex skills curated by daikw.",
+    "longDescription": "A personal collection of reusable Codex skills for development, research, writing, operations, and 3D printing workflows.",
+    "developerName": "daikw",
+    "category": "Productivity",
+    "capabilities": [
+      "Skills"
+    ],
+    "websiteURL": "https://github.com/daikw/skills",
+    "defaultPrompt": [
+      "Use a daikw skill for this task.",
+      "Show available daikw skills.",
+      "Use $3d-printing for this print job."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

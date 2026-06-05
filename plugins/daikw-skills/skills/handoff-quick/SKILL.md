@@ -1,7 +1,7 @@
 ---
 name: handoff-quick
 description: "最小限の引き継ぎメモを HANDOFF.md として生成する。サクッと中断して後で戻りたいときに使う。キーワード: quick handoff, 簡易引き継ぎ, メモ"
-disable-model-invocation: true
+disable-model-invocation: false
 user-invocable: true
 argument-hint: "[出力先パス (省略時: ./HANDOFF.md)]"
 allowed-tools:

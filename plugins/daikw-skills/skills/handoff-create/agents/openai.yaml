@@ -1,0 +1,5 @@
+interface:
+  display_name: Handoff Create
+  short_description: Create a full HANDOFF.md for session transfer.
+policy:
+  allow_implicit_invocation: false

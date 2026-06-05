@@ -1,0 +1,20 @@
+{
+  "name": "daikw-skills",
+  "interface": {
+    "displayName": "daikw Skills"
+  },
+  "plugins": [
+    {
+      "name": "daikw-skills",
+      "source": {
+        "source": "local",
+        "path": "./plugins/daikw-skills"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
