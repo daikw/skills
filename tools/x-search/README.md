@@ -20,11 +20,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh   # https://docs.astral.sh/uv/
 
 ## Credentials
 
-Export `XAI_API_KEY` before invoking. Any env-var injection mechanism works
-(direct export, `direnv`, `dotenvx`, `1Password CLI`, systemd env, …).
+`x-search` resolves credentials internally. It accepts a directly exported
+`XAI_API_KEY`, and also bootstraps `dotenvx` with `DOTENV_PRIVATE_KEY` to
+decrypt `~/.config/dotenvx/.env` when needed.
 
 ```sh
-export XAI_API_KEY="sk-..."
 x-search search "claude code 4.7" -n 10
 ```
 

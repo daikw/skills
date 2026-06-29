@@ -9,8 +9,9 @@ Subcommands:
   x-search search QUERY [opts]    Search posts by keyword / hashtag / topic.
   x-search user   USER  [opts]    Recent posts from a specific user.
 
-Required env:
-  XAI_API_KEY                     Your xAI API key.
+Credential resolution:
+  XAI_API_KEY                     Optional direct export.
+  DOTENV_PRIVATE_KEY              Optional key for ~/.config/dotenvx/.env.
   XAI_MODEL                       Optional override (default: grok-4.3).
 
 Used as a Claude Code skill (daikw:x-search) and from shell / cron / scripts
@@ -23,6 +24,8 @@ import argparse
 import asyncio
 import json
 import os
+from pathlib import Path
+import subprocess
 import sys
 from typing import Optional
 
@@ -38,13 +41,55 @@ DEFAULT_TIMEOUT = 120.0
 MAX_RESULTS_DEFAULT = 10
 
 
-def _get_api_key() -> str:
+def _bootstrap_dotenvx() -> None:
     key = os.environ.get("XAI_API_KEY", "")
-    if not key:
+    if key and not key.startswith("encrypted:"):
+        return
+    if os.environ.get("X_SEARCH_DOTENVX_BOOTSTRAPPED") == "1":
+        return
+
+    env = os.environ.copy()
+    if not env.get("DOTENV_PRIVATE_KEY"):
+        try:
+            private_key = subprocess.check_output(
+                ["op", "read", "op://Personal/dotenvx-private-key/credential"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        except Exception:
+            private_key = ""
+        if private_key:
+            env["DOTENV_PRIVATE_KEY"] = private_key
+
+    if not env.get("DOTENV_PRIVATE_KEY"):
+        return
+
+    env["X_SEARCH_DOTENVX_BOOTSTRAPPED"] = "1"
+    dotenv_file = str(Path.home() / ".config/dotenvx/.env")
+    os.execvpe(
+        "dotenvx",
+        [
+            "dotenvx",
+            "run",
+            "-f",
+            dotenv_file,
+            "--quiet",
+            "--",
+            sys.argv[0],
+            *sys.argv[1:],
+        ],
+        env,
+    )
+
+
+def _get_api_key() -> str:
+    _bootstrap_dotenvx()
+    key = os.environ.get("XAI_API_KEY", "")
+    if not key or key.startswith("encrypted:"):
         raise RuntimeError(
-            "XAI_API_KEY not set. Export it directly, or use your preferred "
-            "env-var injection mechanism (direnv / dotenvx / 1Password CLI / "
-            "systemd env / etc.) to load it before running x-search."
+            "XAI_API_KEY not set or still encrypted. Expected dotenvx to "
+            "decrypt ~/.config/dotenvx/.env using DOTENV_PRIVATE_KEY from "
+            "1Password item op://Personal/dotenvx-private-key/credential."
         )
     return key
 
