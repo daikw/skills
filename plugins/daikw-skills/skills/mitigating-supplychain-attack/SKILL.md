@@ -1,6 +1,6 @@
 ---
 name: mitigating-supplychain-attack
-description: "Verifies supply-chain safety of dependency and Docker base image changes, and sets up protective rules/hooks on the developer's machine. Use when package.json, pyproject.toml, pnpm-lock.yaml, uv.lock, or Dockerfile has been modified, or when the user asks for dependency review, supply-chain check, typosquatting verification, or supply-chain security setup."
+description: "Verifies supply-chain safety of dependency and Docker base image changes, and sets up protective rules/hooks on the developer's machine. Use when package.json, pyproject.toml, pnpm-lock.yaml, uv.lock, or Dockerfile has been modified, or when the user asks for dependency review, supply-chain check, typosquatting verification, or supply-chain security setup. フックの再導入は無条件の標準手順としてではなく、過去に一度ユーザー自身が誤検知過多を理由に無効化した経緯を確認してから提案する。"
 ---
 
 # mitigating-supplychain-attack
@@ -85,6 +85,18 @@ Verdict: PASS / FAIL
 ## セットアップモード
 
 `setup` 引数が渡された場合。配置すべきファイルは `assets/` にバンドル済み。
+
+### 既知の経緯（フック導入前に必ず確認する）
+
+このフック（`supply_chain_guard.py`）は過去に一度導入され、2026-04-13 にユーザー自身の手で `~/.claude/settings.json` の hooks から除去されている。理由は「過剰反応するせいでめんどくさい」という明示的なフィードバックで、当時の実装は package.json/pyproject.toml/Dockerfile への編集を **すべて** PreToolUse/PostToolUse で block する設計だった（一時的な下書き編集や複数ステップにまたがる意図的な中間状態も区別なくブロックしていた）。一方でルールファイル（`~/.claude/rules/supply-chain-security.md`）は同じタイミングで無効化されておらず、現在も定着している。
+
+つまり「ルール導入は成功、フック導入だけがユーザーの意思で明示的にロールバックされた」という非対称な状態が今も続いている。この経緯を知らないセッションがこのスキルの `setup` を実行すると、ユーザーが意図的に外した挙動を無言で復活させてしまう。
+
+**したがって、フックの配置・登録に進む前に、必ずユーザーに以下を確認する**:
+- 過去に「過剰反応でめんどくさい」という理由で無効化した経緯を知っているか
+- それでも今回フックを再導入したいか、それともルール（常時ロード済み）だけで十分と考えているか
+
+ユーザーが再導入を明示的に希望した場合のみ、以下の手順に進む。その際は block ではなく **警告のみ（`additionalContext` を返すだけで `decision: block` を返さない）** から始めることを推奨し、しばらく運用して誤検知が少ないと確認できてから block へ強めるかどうかを改めて相談する。
 
 ### 手順
 
