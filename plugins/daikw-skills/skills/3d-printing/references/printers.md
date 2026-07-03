@@ -22,9 +22,9 @@
 
 | 項目 | 値 |
 |---|---|
-| mDNS service type | `_Creality-<6-byte-hex>._udp.local.` (例: `_Creality-6858672807AC75`) |
-| instance | `K1Max-<last-4-MAC>` (例: `K1Max-AC75`) |
-| hostname | `<instance>.local` (例: `K1Max-AC75.local`) |
+| mDNS service type | `_Creality-<6-byte-hex>._udp.local.` (例: `_Creality-XXXXXXXXXXXXXX`) |
+| instance | `K1Max-<last-4-MAC>` (例: `K1Max-XXXX`) |
+| hostname | `<instance>.local` (例: `K1Max-XXXX.local`) |
 | ホスト解決 | `dns-sd -G v4 <instance>.local` |
 | MAC (`/info`) | `FCEE:XXXX:XXXX` (Creality OUI) |
 
