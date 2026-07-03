@@ -1,5 +1,0 @@
-interface:
-  display_name: Handoff Quick
-  short_description: Create a short HANDOFF.md for quick session transfer.
-policy:
-  allow_implicit_invocation: false

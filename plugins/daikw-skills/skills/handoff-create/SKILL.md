@@ -1,9 +1,9 @@
 ---
 name: handoff-create
-description: "セッション引き継ぎ用の HANDOFF.md を生成する。コンテキストが大きくなったとき、作業を中断するとき、別のエージェントに引き継ぐときに使う。キーワード: handoff, 引き継ぎ, セッション終了, コンテキスト引き継ぎ"
+description: "セッション引き継ぎ用の HANDOFF.md を生成する。コンテキストが大きくなったとき、作業を中断するとき、別のエージェントに引き継ぐときに使う。`$ARGUMENTS` に `quick` を渡すと Goal/Done/Next/State のみの最小版になる（省略時はフル項目）。既存の HANDOFF.md を読んで再開したいだけなら使わない（`handoff-resume` を使う）。キーワード: handoff, 引き継ぎ, セッション終了, コンテキスト引き継ぎ, quick handoff, 簡易引き継ぎ"
 disable-model-invocation: false
 user-invocable: true
-argument-hint: "[出力先パス (省略時: ./HANDOFF.md)]"
+argument-hint: "[quick でモード切替、出力先パス指定も可 (省略時: フル項目 / ./HANDOFF.md)]"
 allowed-tools:
   - Read
   - Write
@@ -12,21 +12,30 @@ allowed-tools:
   - Bash
 ---
 
-# Handoff Create - 完全版引き継ぎドキュメント生成
+# Handoff Create - 引き継ぎドキュメント生成
 
 現在のセッションの作業状態を HANDOFF.md として書き出す。
 次のセッションや別のエージェント（Claude Code / Codex / 人間）が「読むだけで再開できる」ことを目指す。
 
-## 出力先
+## モードと出力先
 
-`$ARGUMENTS` が指定されていれば、そのパスに出力する。
-省略時は `./HANDOFF.md` に出力する。
+`$ARGUMENTS` を解釈する:
+
+- 先頭トークンが `quick` → **quick モード**（下記の最小テンプレート）。残りは出力先パスとして扱う
+- それ以外（省略含む） → **full モード**（デフォルト、下記のフルテンプレート）。`$ARGUMENTS` 全体を出力先パスとして扱う
+- 出力先パス省略時は `./HANDOFF.md`
+
+**モードの目安**: 変更ファイル数が数個・意思決定も単純なら quick で十分。複数の意思決定・Failed Approaches・他エージェントへの正式な引き継ぎが要るなら full を使う。
 
 ## 手順
 
 ### 1. コンテキスト収集
 
-以下を自動的に調べる（すべて必須ではない。該当するものだけ集める）:
+**quick モード**は最低限のみ:
+- `git status --short` と `git branch --show-current`
+- 現在のタスクリスト（あれば）
+
+**full モード**は以下を自動的に調べる（すべて必須ではない。該当するものだけ集める）:
 
 - **Git 状態**: `git status`, `git diff --stat`, `git log --oneline -10`, 現在のブランチ
 - **変更ファイル一覧**: 未コミットの変更、新規ファイル
@@ -36,7 +45,34 @@ allowed-tools:
 
 ### 2. HANDOFF.md を生成
 
-以下のテンプレートに沿って書く。セクションが不要な場合は省略してよい。
+**quick モードのテンプレート**:
+
+```markdown
+# HANDOFF (Quick)
+
+_Generated: {datetime}_
+
+## Goal
+
+一言で目的。
+
+## Done
+
+- 完了した作業（箇条書き）
+
+## Next
+
+- 次にやるべきこと（箇条書き、優先度順）
+
+## State
+
+- Branch: `{branch}`
+- Uncommitted: yes/no
+- Build: pass/fail
+- Notes: 一言メモ
+```
+
+**full モードのテンプレート**: 以下のテンプレートに沿って書く。セクションが不要な場合は省略してよい。
 
 ```markdown
 # HANDOFF
@@ -116,3 +152,7 @@ _Session: ${CLAUDE_SESSION_ID}_
 ### 3. 出力後の確認
 
 生成した HANDOFF.md の行数と主要セクションを報告する。
+
+## auto-memory との違い
+
+`~/.claude/projects/*/memory/` の auto-memory は Claude Code が暗黙に生成・参照する恒久知識で、他ハーネスや他人には渡せない。HANDOFF.md は明示的に生成し、git commit されてリポジトリと一緒に可搬な「特定タスクの状態スナップショット」である。恒常的な知見は auto-memory、今回の作業の引き継ぎは HANDOFF.md、という役割分担で使う。
