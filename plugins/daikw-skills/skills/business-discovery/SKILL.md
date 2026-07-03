@@ -12,6 +12,7 @@ allowed-tools:
   - Bash
   - WebSearch
   - WebFetch
+  - Task
   - AskUserQuestion
   - TaskCreate
   - TaskUpdate
