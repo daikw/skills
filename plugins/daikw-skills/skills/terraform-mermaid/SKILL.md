@@ -1,5 +1,5 @@
 ---
-name: generating-terraform-mermaid
+name: terraform-mermaid
 description: "Terraform の .tf ファイルからサーバ構成図を Mermaid 記法で生成する。GCP/AWS リソースのモジュール間依存関係を可視化し、アイコン・色分け付きのフローチャートを出力する。「Terraform 構成図」「インフラ図を Mermaid で」「サーバ構成を可視化して」などのリクエストで使用。"
 ---
 

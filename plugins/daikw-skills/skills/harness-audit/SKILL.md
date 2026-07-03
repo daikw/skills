@@ -1,5 +1,5 @@
 ---
-name: auditing-harness
+name: harness-audit
 description: >-
   Audits the Claude Code harness configuration under ~/.claude/ — rules, agents, skills,
   hooks, commands, plugins, personas, teams, and memory. Detects stale files, broken
