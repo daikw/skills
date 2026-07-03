@@ -15,8 +15,10 @@ description: "プロジェクトディレクトリを移動・リネームした
 
 ## スクリプト
 
+このスキルの起動時、Claude Code はコンテキスト冒頭に `Base directory for this skill: <path>` という行を必ず注入する。以下のコマンド例の `$SKILL_DIR` は、その行が示す実際のパス（daikw plugin 経由なら `~/.claude/plugins/cache/daikw-skills/daikw/<version>/skills/move-project`、リポジトリを直接 clone して使っている場合は `~/ghq/github.com/daikw/skills/plugins/daikw-skills/skills/move-project` 等、インストール経路によって変わる）に読み替えること。`~/.claude/skills/move-project/` に固定コピーがある前提を置かない。
+
 ```
-~/.claude/skills/move-project/
+$SKILL_DIR/
 ├── migrate-claude.sh   ← Claude Code 履歴の移行
 ├── migrate-codex.sh    ← Codex CLI セッションの移行
 └── SKILL.md
@@ -28,8 +30,8 @@ description: "プロジェクトディレクトリを移動・リネームした
 
 ```bash
 # 何が変わるかを確認する（ファイルは変更しない）
-bash ~/.claude/skills/move-project/migrate-claude.sh --check /old/path /new/path
-bash ~/.claude/skills/move-project/migrate-codex.sh  --check /old/path /new/path
+bash "$SKILL_DIR/migrate-claude.sh" --check /old/path /new/path
+bash "$SKILL_DIR/migrate-codex.sh"  --check /old/path /new/path
 ```
 
 ### 1. プロジェクトディレクトリを移動（未実施の場合）
@@ -41,13 +43,13 @@ mv /old/path/to/project /new/path/to/project
 ### 2. Claude Code 履歴を移行
 
 ```bash
-bash ~/.claude/skills/move-project/migrate-claude.sh /old/path/to/project /new/path/to/project
+bash "$SKILL_DIR/migrate-claude.sh" /old/path/to/project /new/path/to/project
 ```
 
 ### 3. Codex セッションを移行
 
 ```bash
-bash ~/.claude/skills/move-project/migrate-codex.sh /old/path/to/project /new/path/to/project
+bash "$SKILL_DIR/migrate-codex.sh" /old/path/to/project /new/path/to/project
 ```
 
 ### 4. 確認
