@@ -9,15 +9,14 @@ dotenvx is an environment variable management tool that loads and encrypts .env 
 
 ## Installation
 
-```bash
-# curl (recommended)
-curl -sfS https://dotenvx.sh | sh
+Avoid unpinned remote install scripts (supply-chain-security policy; no `mise` plugin exists for dotenvx either). Prefer brew (goes through Homebrew's build/signing pipeline) or npm with an exact pinned version:
 
-# brew
+```bash
+# brew (recommended — signed release pipeline)
 brew install dotenvx/brew/dotenvx
 
-# npm
-npm install @dotenvx/dotenvx --save
+# npm (pin an exact version; check current with `npm view @dotenvx/dotenvx version`)
+npm install --save-exact -g @dotenvx/dotenvx@2.1.4
 ```
 
 ## Basic Commands
@@ -130,14 +129,14 @@ rm .env.production.bak
 
 ## GitHub Actions
 
-Install via curl. See `assets/gh_action_example.yaml` for a complete example.
+Install via npm with a pinned version (same policy as local installs — no unpinned remote install scripts). See `assets/gh_action_example.yaml` for a complete example.
 
 ```yaml
 steps:
   - uses: actions/checkout@v4
 
   - name: Install dotenvx
-    run: curl -sfS https://dotenvx.sh | sh
+    run: npm install --save-exact -g @dotenvx/dotenvx@2.1.4
 
   - name: Run tests
     env:

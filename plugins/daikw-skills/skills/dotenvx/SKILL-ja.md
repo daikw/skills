@@ -9,15 +9,14 @@ dotenvx は .env ファイルの読み込み・暗号化を行う環境変数管
 
 ## インストール
 
-```bash
-# curl（推奨）
-curl -sfS https://dotenvx.sh | sh
+バージョン未固定・未検証のリモートインストールスクリプトは使わない（supply-chain-security ルールに抵触する。mise にも dotenvx 用プラグインは存在しないため選択肢にならない）。brew（Homebrew のビルド・署名検証パイプラインを通る）または npm のバージョン固定インストールを使う:
 
-# brew
+```bash
+# brew（推奨。署名検証済みのリリースパイプライン）
 brew install dotenvx/brew/dotenvx
 
-# npm
-npm install @dotenvx/dotenvx --save
+# npm（バージョンを固定する。現行版は `npm view @dotenvx/dotenvx version` で確認）
+npm install --save-exact -g @dotenvx/dotenvx@2.1.4
 ```
 
 ## 基本コマンド
@@ -130,14 +129,14 @@ rm .env.production.bak
 
 ## GitHub Actions
 
-curl でインストール。完全な例は `assets/gh_action_example.yaml` を参照。
+npm でバージョンを固定してインストールする（ローカル同様、CI でも未固定のリモートインストールスクリプトは使わない）。完全な例は `assets/gh_action_example.yaml` を参照。
 
 ```yaml
 steps:
   - uses: actions/checkout@v4
 
   - name: Install dotenvx
-    run: curl -sfS https://dotenvx.sh | sh
+    run: npm install --save-exact -g @dotenvx/dotenvx@2.1.4
 
   - name: Run tests
     env:
