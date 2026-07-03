@@ -1,6 +1,6 @@
 ---
 name: terraform-mermaid
-description: "Terraform の .tf ファイルからサーバ構成図を Mermaid 記法で生成する。GCP/AWS リソースのモジュール間依存関係を可視化し、アイコン・色分け付きのフローチャートを出力する。「Terraform 構成図」「インフラ図を Mermaid で」「サーバ構成を可視化して」などのリクエストで使用。"
+description: "Terraform の .tf ファイルからサーバ構成図を Mermaid 記法で生成する。GCP リソースのモジュール間依存関係を可視化し、アイコン・色分け付きのフローチャートを出力する。「Terraform 構成図」「インフラ図を Mermaid で」「サーバ構成を可視化して」などのリクエストで使用。AWS 用のアイコン対応表は未整備のため対象外に近く、AWS リソース中心の構成では色分け・アイコンなしの素の Mermaid になる（GCP ほどの仕上がりは期待しない）。"
 ---
 
 # Terraform → Mermaid 構成図生成
@@ -34,7 +34,7 @@ ls terraform/modules/ 2>/dev/null || ls modules/ 2>/dev/null
 
 ### 3. Mermaid の生成
 
-GCP リソースのアイコン・色分けは [references/gcp-icons.md](references/gcp-icons.md) を参照。
+GCP リソースのアイコン・色分けは [references/gcp-icons.md](references/gcp-icons.md) を参照。AWS 用の対応表は未整備なので、AWS リソースは emoji・色分けをその場で即興的に決めるしかない（出力のブレを許容する）。
 
 #### 構成ルール
 
