@@ -1,11 +1,6 @@
 ---
 name: harness-audit
-description: >-
-  Audits the Claude Code harness configuration under ~/.claude/ — rules, agents, skills,
-  hooks, commands, plugins, personas, teams, and memory. Detects stale files, broken
-  cross-references, duplicate responsibilities, rule effectiveness gaps, and memory drift.
-  Use when the user says 'harness-audit', '棚卸し', 'ハーネスの状態', 'ルールの整合性チェック',
-  or 'メモリの整理'. Also triggered by Desktop Schedule for periodic automated runs.
+description: "Audits the Claude Code harness configuration under ~/.claude/ — rules, agents, skills, hooks, commands, plugins, personas, teams, and memory. Detects stale files, broken cross-references, duplicate responsibilities, rule effectiveness gaps, and memory drift. Use when the user says 'harness-audit', '棚卸し', 'ハーネスの状態', 'ルールの整合性チェック', or 'メモリの整理'. Also triggered by Desktop Schedule for periodic automated runs. 個別ルール・スキルの設計原則を知りたいだけなら使わない（meta-rules を使う）。"
 ---
 
 # Harness Audit
