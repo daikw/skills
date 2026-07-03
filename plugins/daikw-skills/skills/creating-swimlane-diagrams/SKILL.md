@@ -119,7 +119,7 @@ endif
 
 - 生成物（`.puml`, `.svg`, `.png`）は **cwd に保存**。リポジトリ管理したい場合はそのまま `git add`
 - **Miro / Figma / Notion へ貼る場合は手動アップロード**（PNG をドラッグ&ドロップ）。Miro MCP には画像アップロードツールが現状無い
-- **GitHub の issue/PR に貼る場合**は SVG または PNG をコメント欄にドラッグ。`uploading-images-via-browser` スキルで自動化も可能
+- **GitHub の issue/PR に貼る場合**は SVG または PNG をコメント欄にドラッグ
 
 ## ファイル構成
 

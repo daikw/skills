@@ -1,11 +1,11 @@
 ---
 name: issue-dev
-description: "Fetches GitHub or GitLab issues and drives full implementation using swarm-dev. Use when the user says things like 'チケット取得して開発して', 'Issue #XX を対応して', '#XX 実装して', 'このチケット対応して', or 'オープンなIssueを順に処理して'. Also triggers when a GitHub/GitLab issue URL is pasted alongside a development request."
+description: "Fetches GitHub or GitLab issues and drives full implementation by organizing a team directly with the Agent tool (or Dynamic Workflows for larger fan-out). Use when the user says things like 'チケット取得して開発して', 'Issue #XX を対応して', '#XX 実装して', 'このチケット対応して', or 'オープンなIssueを順に処理して'. Also triggers when a GitHub/GitLab issue URL is pasted alongside a development request."
 ---
 
 # issue-dev
 
-GitHub / GitLab の Issue を取得し、`/swarm-dev` チームで実装して PR を作成するまでを一貫して行う。
+GitHub / GitLab の Issue を取得し、実装して PR を作成するまでを一貫して行う。
 可能な限り自律して取り組み、ユーザーの介入を最小限に抑える。
 
 **Freedom Level: 中** — フロー順序は守りつつ、Issue の内容・プロジェクト構成に応じてチーム編成を調整する。
@@ -59,11 +59,14 @@ Issue #XX「<タイトル>」の解釈を確認します。
 
 ---
 
-### Step 3: /swarm-dev で実装
+### Step 3: チームを編成して実装
 
-確認が取れたら `/swarm-dev` を呼び出し、チームを編成して並列実装する。
+確認が取れたら実装に入る。規模に応じて編成方法を選ぶ:
 
-`/swarm-dev` に渡すコンテキスト:
+- **小〜中規模（大半のケース）**: `Agent` ツールで役割ごとにエージェントを直接起動する（実装・レビュー・テスト等）。並列実行が有効な独立作業は同一メッセージ内で複数 Agent 呼び出しをまとめる。
+- **大規模な並列 fan-out が要る場合**: Dynamic Workflows（`Workflow` ツール）でフェーズ・依存関係を定義して編成する。
+
+いずれの場合も、エージェントに渡すコンテキスト:
 - Issue番号・タイトル・本文
 - 確認済みの解釈・完了条件
 - 追加要件（ユーザーが補足した場合）
@@ -91,18 +94,18 @@ browser_validation_scope: per_issue | batch
 
 ### Step 4: PR 作成・報告
 
-実装完了後（swarm-dev の Phase 5 で PR が作成される）:
+実装・レビュー・テストが完了したら PR を作成する:
 
 - PR URL をユーザーに報告
 - PR body には Browser Test Summary が含まれていることを確認
-- `pr_ready: no` で swarm-dev が停止した場合、ブロック理由をユーザーに報告し判断を仰ぐ
+- ブロッキングな問題が残った場合、理由をユーザーに報告し判断を仰ぐ
 
 ---
 
 ## 複数 Issue の処理
 
 「順に処理して」と言われた場合は、優先度判断後に **1件ずつ** Step 2〜4 を繰り返す。
-並列実装は swarm-dev 内部で行う。Issue間の依存関係がある場合は直列処理する。
+Issue 内部の並列実装は Step 3 のチーム編成で行う。Issue間の依存関係がある場合は直列処理する。
 
 ブラウザ検証は原則 **Issue ごと**（`per_issue`）。同一ブランチで密結合な複数 Issue をまとめる場合のみ `batch` を指定。
 
@@ -127,5 +130,5 @@ browser_validation_scope: per_issue | batch
 #68 を対応して。ただし GCP 前提で実装すること
 ```
 
-この場合、追加要件は解釈確認（Step 2）に含めて提示し、swarm-dev に確実に引き継ぐ。
+この場合、追加要件は解釈確認（Step 2）に含めて提示し、Step 3 で編成するエージェントに確実に引き継ぐ。
 ブラウザ検証に関する指示があれば `browser_validation_requested` に反映する。
