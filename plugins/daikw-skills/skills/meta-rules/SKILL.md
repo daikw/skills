@@ -235,7 +235,7 @@ my-skill/
 plugins/daikw-skills/skills/meta-rules/scripts/lint.sh
 
 # 単一スキルのみ検証（パス指定 or ディレクトリ名指定）
-plugins/daikw-skills/skills/meta-rules/scripts/lint.sh skill-creator
+plugins/daikw-skills/skills/meta-rules/scripts/lint.sh meta-rules
 ```
 
 チェック項目:
