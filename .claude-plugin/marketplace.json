@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "daikw-skills",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Personal Claude Code skills marketplace by daikw",
   "owner": {
     "name": "daikw",
@@ -11,7 +11,7 @@
     {
       "name": "daikw",
       "description": "Personal Claude Code skills curated by daikw",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "source": "./plugins/daikw-skills",
       "category": "productivity"
     }
