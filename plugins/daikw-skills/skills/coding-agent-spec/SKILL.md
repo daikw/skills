@@ -1,6 +1,6 @@
 ---
-name: researching-coding-agent-specs
-description: "Researches coding-agent specifications (Claude Code, Codex, Cursor, etc.), verifies facts from official docs/repos, and produces a structured comparison report. Triggers when users ask to investigate, compare, or update agent specs, hooks, config schemas, MCP integration, or CLI behavior. キーワード: コーディングエージェント仕様, hook仕様, Claude Code仕様, Codex仕様, Cursor仕様, agent spec"
+name: coding-agent-spec
+description: "Researches coding-agent specifications (Claude Code, Codex, Cursor, etc.), verifies facts from official docs/repos, and produces a structured comparison report. Triggers when users ask to investigate, compare, or update agent specs, hooks, config schemas, MCP integration, or CLI behavior. キーワード: コーディングエージェント仕様, hook仕様, Claude Code仕様, Codex仕様, Cursor仕様, agent spec. 特定エージェントの使い方を実行するだけの場面（既存スキルの呼び出しで足りるとき）では使わない。"
 user-invocable: true
 argument-hint: "<対象エージェント名・調査トピック・比較範囲（省略時は横断調査）>"
 allowed-tools:
@@ -18,7 +18,7 @@ allowed-tools:
   - TaskList
 ---
 
-# researching-coding-agent-specs
+# coding-agent-spec
 
 コーディングエージェント仕様を調査し、根拠付きの比較レポートを作成する。
 

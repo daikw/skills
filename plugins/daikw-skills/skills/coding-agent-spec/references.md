@@ -4,7 +4,7 @@
 
 | エージェント | 公式ドキュメント | 設定ディレクトリ |
 |---|---|---|
-| Claude Code | https://docs.anthropic.com/claude-code | `~/.claude/` |
+| Claude Code | https://code.claude.com/docs | `~/.claude/` |
 | OpenAI Codex CLI | https://github.com/openai/codex | `~/.codex/` |
 | Cursor | https://www.cursor.com/docs | `~/.cursor/` |
 
@@ -12,10 +12,10 @@
 
 ### Claude Code
 
-- フック仕様: https://docs.anthropic.com/claude-code/hooks
-- MCP: https://docs.anthropic.com/claude-code/mcp
+- フック仕様: https://code.claude.com/docs/en/hooks
+- MCP: https://code.claude.com/docs/en/mcp
 - スキル: https://code.claude.com/docs/en/skills
-- エージェント: https://docs.anthropic.com/claude-code/agents
+- サブエージェント: https://code.claude.com/docs/en/sub-agents
 
 ### OpenAI Codex CLI
 
