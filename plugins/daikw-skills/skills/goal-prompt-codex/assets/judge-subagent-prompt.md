@@ -1,6 +1,5 @@
 <!--
 Judge subagent 起動用プロンプトテンプレ。
-goal-prompt-codex / goal-prompt-claude-code 両方で共通。
 Task tool で新規 subagent に dispatch する際の入力契約。
 プレースホルダ {{...}} を埋めて使う。
 mizchi の subagent 起動契約 (empirical-prompt-tuning) に準拠。
