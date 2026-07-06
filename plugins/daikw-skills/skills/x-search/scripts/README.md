@@ -35,8 +35,7 @@ x-search search "<query>" [-n 1..30] [--language ja] [--from-date YYYY-MM-DD] [-
 x-search user   <@username> [-n 1..30] [--filter "<topic>"] [--from-date ...] [--to-date ...] [--format ...]
 ```
 
-See [`../../skills/x-search/SKILL.md`](../../skills/x-search/SKILL.md) for
-the Claude Code skill that drives this CLI.
+See [`../SKILL.md`](../SKILL.md) for the Claude Code skill that drives this CLI.
 
 ## Pricing
 
