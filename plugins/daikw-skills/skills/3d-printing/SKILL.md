@@ -224,6 +224,7 @@ curl -o "$ARTIFACT_DIR/complete.jpg" http://<IP>:8080/?action=snapshot   # 完�
 
 - [printers.md](references/printers.md) — 機種別スペック・プロトコル・upload/start エンドポイント
 - [camera-verification.md](references/camera-verification.md) — 印刷前後のスナップショット運用
+- [support-interface-materials.md](references/support-interface-materials.md) — サポート界面への異種マテリアル活用パターン集（PETG×PLA 剥離、HIPS/PVA/BVOH、スライサー設定、ハードウェア形態別の注意）
 
 ---
 
