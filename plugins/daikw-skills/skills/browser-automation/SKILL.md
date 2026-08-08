@@ -130,6 +130,17 @@ IAP のセッション Cookie（`GCP_IAP_UID`, `__Host-GCP_IAP_AUTH_TOKEN_*`）�
 | `browser_run_code` | Playwright API を直接実行（高度な操作向け） |
 | `browser_wait_for` | 要素出現やナビゲーション完了を待つ |
 
+### スクリーンショット
+
+`browser_take_screenshot` は `filename`（相対パス推奨）、`type`（`png` / `jpeg`）、
+`fullPage`（`true` でページ全体、`false` でビューポートのみ）を取る。
+
+撮影後に形式変換が必要な場合、macOS では追加ツールなしで変換できる。
+
+```sh
+sips -s format jpeg <file>.png --out <file>.jpg
+```
+
 ## リファレンス
 
 - E2E テスト戦略・シナリオ設計: [references/e2e-testing.md](references/e2e-testing.md)
