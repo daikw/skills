@@ -143,6 +143,29 @@ my-skill/
 
 新規作成時は、この3軸をユーザーに AskUserQuestion で確認してから配置する（配置後にリポジトリを跨いで移動するのはコストが高いため、着手前に決める）。
 
+### ハーネス仕様差による設定の非対称
+
+同じ制御が両ハーネスで同じ書き方にならない場合がある。**非対称そのものを「矛盾」と見なして片方を消さない。**
+消す前に、それが仕様差の吸収なのかドリフトなのかを確かめる。
+
+現時点で判明している非対称は次のとおり。
+
+| 制御したいこと | Claude | Codex |
+|---|---|---|
+| モデルによる暗黙起動を止める | `SKILL.md` の `disable-model-invocation: true` | `agents/openai.yaml` の `policy.allow_implicit_invocation: false` |
+
+Codex 同梱のシステムスキル `plugin-creator` に入っているプラグイン validator は、
+`disable-model-invocation` が `false` 以外だと配布を拒否する。
+そのため、暗黙起動を止めたいスキルでも `SKILL.md` 側は `false` にせざるを得ず、
+Codex 側の制限は `agents/openai.yaml` が肩代わりする。
+Claude 側に同等の外部指定手段は無いため、**Claude では暗黙起動が開いたままになる**。
+
+つまり `SKILL.md: disable-model-invocation: false` と
+`openai.yaml: allow_implicit_invocation: false` の共存は仕様であって、
+どちらかを消して「揃える」のは誤り。`openai.yaml` を消すと Codex 側の制限まで失われる。
+
+Claude 側でも暗黙起動を避けたいときは、`description` の「いつ使わないか」を強めて対処する。
+
 ## Agents
 
 **自律的なタスク実行を担当。**
