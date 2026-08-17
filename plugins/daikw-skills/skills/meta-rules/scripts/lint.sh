@@ -113,7 +113,7 @@ lint_skill() {
       echo "ERROR [$name_dir] referenced path does not exist: $ref"
       errors=$((errors + 1))
     fi
-  done < <(printf '%s\n' "$body" | grep -oE '(references|scripts|assets)/[A-Za-z0-9_./-]+' | sort -u)
+  done < <(printf '%s\n' "$body" | sed -E 's~https?://[^[:space:])<>"]+~~g' | grep -oE '(references|scripts|assets)/[A-Za-z0-9_./-]+' | sort -u)
 
   # 4. supply-chain contradictions (see rules/supply-chain-security.md)
   if printf '%s\n' "$body" | grep -qE 'curl[^|]*\|[[:space:]]*(sh|bash)\b'; then
