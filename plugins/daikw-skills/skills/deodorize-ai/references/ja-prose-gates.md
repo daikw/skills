@@ -2,6 +2,8 @@
 
 ja-prose ルートの surface / structural ゲートと、rewrite 時の校正ルール。構造ゲート S 系は [prose-structure-gates.md](prose-structure-gates.md)、捏造・残骸は [universal-gates.md](universal-gates.md) を併用する。
 
+層帰属: JA-3（構成の宣言）・J-5（前置きの構成）・J-8（文書の閉じ方）は structural、それ以外の JA 系・J 系は surface。
+
 ## JA 系: 基本 6 パターン（surface〜structural）
 
 ### JA-1 記号の残骸 — major
@@ -26,7 +28,7 @@ ja-prose ルートの surface / structural ゲートと、rewrite 時の校正�
 
 - 検出: 保険表現（「一概には言えませんが」）/ 過剰な中立（「メリットもあればデメリットもあります」）/ 弱い否定（「あまり推奨されません」）/ 逃げ（「ケースバイケース」「場合によります」）があるか？
 - なぜ: 安全制御の副作用。言い切りを回避するよう調教されている。
-- 修正: **根拠があるのに言い切らない**箇所のみ断定に直す。根拠が不確実な主張の hedging は保持する（universal 原則 7）。
+- 修正: **根拠があるのに言い切らない**箇所のみ断定に直す。根拠が不確実な主張は、定型の保険表現だけを除去し、hedging の実質は非定型の表現で残す（universal 原則 7 の二段適用）。
 
 ### JA-5 抽象語・万能語への偏り — major
 
