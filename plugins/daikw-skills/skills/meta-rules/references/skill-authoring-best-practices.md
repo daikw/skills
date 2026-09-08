@@ -1,73 +1,68 @@
-# Skill Authoring Best Practices - 公式原則の要約
+# 記述の精緻さと情報配置
 
-[meta-rules](../SKILL.md) の frontmatter・本文の書き方を補う、Anthropic 公式ベストプラクティスの要約。
-ユーザー・プロジェクト固有の判断（配置4系統・両ハーネス両置き等）は meta-rules 本文の正本を参照する。
+この文書は `meta-rules` の判断基準を具体化する。例は判断の説明であり、全スキルに同じ手順を要求しない。
 
-## 公式ドキュメント
+## どこまで具体的にするか
 
-- **Best practices（公式）**: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices
-- **Complete Guide to Building Skills（PDF）**: https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf
+まず「この情報をモデルに任せると、何を間違えるか」を考える。
 
-## Context Window の節約
+- 一般的な調査・文章整理・設計の方法なら、目的と品質の判定基準を示す。
+- ユーザー固有の表記や組織固有の運用なら、一般化せずその規則を明記する。
+- 入力次第で方法を変える必要があるなら、既定の方針と切替条件を示す。
+- 対象や順序を間違えると後から直せないなら、識別・承認・操作・照合を具体化する。
+- API 固有の ID、shell-safe な引数輸送、タイムアウト後の重複判定など、推測しにくい知識は残す。
+- 決定的な処理は既存スクリプトに任せる。スクリプト化のために新規の抽象化や依存を増やさない。
 
-- startup 時はすべてのスキルの `name` + `description` のみロード
-- `SKILL.md` 本文はスキル発火時にのみ読まれる
-- 参照ファイルは Claude が必要と判断したときのみ読まれる
-- → 本文に書く価値のある情報のみ置く
+観測しやすい出力では方法を任せやすい。見えにくい副作用では、何を観測して安全を確かめるかまで書く。
+高リスクな操作を含むスキルでも、調査・下書き・準備には別の裁量範囲を設定できる。
 
-## description が discovery の鍵
+## 比較例
 
-多数のスキルが並存する環境では description だけでスキルが選ばれる。必ず含める:
-1. スキルが何をするか（動詞 + 対象）
-2. いつ使うか（トリガー条件・ユーザー発話例）
-3. いつ使わないか（誤爆・不発を両方抑える）
-
-## Progressive Disclosure の 3 レベル
-
-| レベル | 内容 | タイミング |
+| 仕事 | 過剰な指定の例 | 必要な指定の例 |
 |---|---|---|
-| Metadata | name + description | 常時（~100 words） |
-| SKILL.md 本文 | 手順・ワークフロー | 発火時（< 5k words） |
-| 参照ファイル | 詳細スキーマ・例・API仕様 | 必要時（無制限） |
+| 技術メモを書く | 全段落に同じ接続句、決まった論証順を強制 | 想定読者、意味と不確実性の保持、表記、読者が次に判断できること |
+| 事業候補を比べる | 出典のない粗利・回収期間で足切り、候補数を固定 | 顧客工程、購買契機、供給能力、証拠と仮説、意思決定を変える未知 |
+| 共有文書を更新する | 全件読み直し、編集ごとに再承認 | 対象・変更範囲、既存構造、並行編集、認可、保存後の該当箇所確認 |
+| ジョブ投入がタイムアウトする | 成功扱い、または即再送 | 同じジョブの状態を独立に照合し、重複しないと確認できた場合のみ再送 |
+| UI の操作方法が変わる | 古い座標・固定クリック列、全プロセス再起動 | 現在見える要素と状態で識別し、必要な操作だけ進める。ポリシー拒否は迂回しない |
 
-## Evaluation-Driven Development
+## 何をどこに置くか
 
-1. スキルなしで Claude にタスクを実行させ、失敗箇所を記録する
-2. その失敗をカバーする評価シナリオを 3 つ作成する
-3. 最小限の手順を書いてシナリオを通過させる
-4. 実使用で観察し、改善を繰り返す
+- description: 適用対象と使い分け。長い操作リストや全知識の索引にしない。
+- SKILL.md: 対象、成果、常に必要な境界、判断の入口。通常の仕事に必要な短い例はここでもよい。
+- references: 特定のモードでだけ必要な手順、schema、詳しい例。リンクに読む条件を添える。
+- scripts: 検証された厳密な処理。通常は実装全文を読ませず、インターフェースを説明する。
+- assets: 出力へ利用する素材。指示として常時読み込ませない。
+- 実行記録: 個別環境・時点の結果。一般規則と混ぜない。
 
-広範な手順を最初から書かない。実際のギャップにのみ対応する。
+参照をたどる段数が増え、通常のケースに必要な知識を探し回るなら、入口の分割を見直す。
+短い完成例を入口に戻す方がよい場合もある。文字数削減だけで良否を決めない。
 
-## Multi-model テスト
+## Astra と他モデルの共存
 
-| モデル | 注意点 |
-|---|---|
-| Haiku | 情報量が少ないと詰まる。十分なガイドが必要 |
-| Sonnet | バランス型。標準的なターゲット |
-| Opus | 説明過多になりがち。不要な説明を省く |
+モデル名だけを理由に安全要件を削らず、思考の癖を断定する指示を常設しない。
+まず目的・固有知識・不変条件を共有し、Astra と Claude Fable など実際に使う対象で確認する。
+同じタスクでモデル・ハーネスによる差が観測された場合に、必要な例・adapter・操作手順だけ分ける。
+片方の成功や、軽量モデルの成功から全対象の成功を推定しない。
 
-Haiku で動けば他でも動く。Opus 向けに最適化すると Haiku で過少情報になるリスクがある。
+裁量による方法の選択は失敗ではない。仕様欠落を推測して権限を広げた場合、事実を捏造した場合、
+必要な成果や検証を省いた場合と区別する。評価は成果物と実行の証拠を主とする。
 
-## Feedback Loop パターン
+## 形式と実行機構
 
-品質が重要な処理には validate → fix → repeat ループを組み込む:
+名前と description は対象ハーネスの現行仕様に従う。共通配布では通常、英小文字・数字・ハイフンの名前と
+空でない description を使う。Anthropic の仕様は名前64文字、description 1024文字以内で、予約語制約もある。
+既存ハーネスで有効な optional frontmatter を別ハーネス用 validator の都合で消さない。
+Anthropic の本文500行未満という指針は、本文を膨らませてよい目標値ではない。
 
-```markdown
-1. ドキュメントを編集する
-2. すぐ検証する: `python validate.py output/`
-3. エラーがあれば修正して再検証する
-4. 検証通過後のみ次へ進む
-```
+Claude の動的コンテキスト注入や allowed-tools、Codex の agents/openai.yaml は実行機構が異なる。
+共通本文で存在しないツールや自動実行を仮定せず、利用する機構の仕様と配布後の挙動を確認する。
 
-## Dynamic Context Injection
+## 一次資料
 
-スキル発火時に実行結果をコンテキストに注入できる:
+上の判定表はこのスキルの設計基準。モデルの特性や形式の仕様は次の一次資料と区別する。
 
-```markdown
-## Current PR context
-- PR diff: !`gh pr diff`
-- PR comments: !`gh pr view --comments`
-```
-
-バッククォートで囲まれたコマンド（`` !`cmd` ``）は Claude に送信される前に実行される。
+- [OpenAI: GPT-6 Astra prompting](https://developers.openai.com/api/docs/guides/latest-model#prompting-best-practices): 指示の感度、確認・継続、検証量。latest URL の対象モデルは利用時に確認する。
+- [Eric Provencher: Rethinking skills and prompts for GPT-6 Astra](https://x.com/pvncher/status/2095991462416490862): 過剰なレシピ、段階的な参照、複数モデルでの指示の扱い。
+- [Anthropic: Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices): 操作の壊れやすさと可変性に応じた具体性、対象モデルでの検証、形式。
+- [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills): Codex のスキル作成・配布。

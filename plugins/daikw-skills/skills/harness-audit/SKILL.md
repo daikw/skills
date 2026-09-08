@@ -1,146 +1,51 @@
 ---
 name: harness-audit
-description: "Audits the Claude Code harness configuration under ~/.claude/ — rules, agents, skills, hooks, commands, plugins, personas, teams, and memory. Detects stale files, broken cross-references, duplicate responsibilities, rule effectiveness gaps, and memory drift. Use when the user says 'harness-audit', '棚卸し', 'ハーネスの状態', 'ルールの整合性チェック', or 'メモリの整理'. Also triggered by Desktop Schedule for periodic automated runs. 個別ルール・スキルの設計原則を知りたいだけなら使わない（meta-rules を使う）。"
+description: "指定された Codex / Claude Code の指示・skills・agents・hooks・plugins・memory の読込経路と整合性を読み取り監査する。ハーネスの棚卸しや挙動の原因調査に使う。個別スキルの設計だけなら meta-rules、通常のコード監査には使わない。"
 ---
 
-# Harness Audit
+# ハーネスの監査
 
-Claude Code のハーネス構成（`~/.claude/` 配下）を棚卸しし、問題を検出して報告する。
+依頼された範囲で、何が読まれ、どの判断・操作に影響しているかを証拠から説明する。
+監査は read-only。修正を依頼されている場合はその範囲を進め、設定変更やメモリ削除を監査から推定しない。
 
-**Read-only がデフォルト。** ファイルの修正はユーザーが明示的に依頼した場合のみ行う。
+## 調査する範囲を決める
 
-**Freedom Level: 中** — チェック項目は固定だが、検出した問題への提案は文脈に応じて判断する。
+指定されたハーネス・root・症状を起点にする。
+一つの skill や一つの project が対象なら、全アカウントや全履歴へ広げない。
+依頼から対象が特定できない場合は、候補の名前・メタデータを確認し、判断を変える不明点だけ聞く。
 
-## 住み分け
+まずファイル名・配置と参照関係を調べ、必要な本文と許可された設定項目だけ読む。
+認証情報・生の環境変数・秘密を含む設定全文を出力しない。
+ハーネス固有の場所を調べる必要がある場合のみ [読込経路の確認](references/runtime-map.md)を使う。
 
-| スキル | 責務 |
-|---|---|
-| `/meta-rules` | 設計原則・分類ルール。追加・変更・削除時の判断基準 |
-| `/harness-audit` | 現物検査・診断。定期的な棚卸しと問題検出 |
+## 原因と所有先を対応させる
 
-## Audit Workflow
+- 指示の正本、generated/installed copy、cache、archive、runtime state を区別する。
+- 起動時に何が載るか、Skill が何で選ばれるか、選ばれた後の参照が読めるかを別々に確認する。
+- description の競合、不要な常時読込、本文の過剰なレシピ、矛盾する完了・承認条件を調べる。
+- 停止原因を指示文、hook、permission、認証、ツール/環境に分ける。文面を変えても解決しない原因を混ぜない。
+- 似た名前・古い日時・無効化された plugin・未接続 hook は候補であり、それだけでは欠陥でない。
+- ハーネス間の差分には、仕様差、意図的な運用、stale copy のどれかを根拠で付ける。無条件に統一しない。
 
-### Phase 1: インベントリ収集
+読まれる文書、参照先の実在、機械的に強制される境界、実際の挙動を別の証拠として記録する。
+hook の有無だけで規則の実効性を点数化したり、hook 追加・権限緩和を自動提案したりしない。
+明確な影響のある問題では、必要な是正とその所有先を示す。
 
-以下のディレクトリを走査し、ファイル数と一覧を取得する。
+## メモリと挙動
 
-| 対象 | パス | 確認内容 |
-|---|---|---|
-| Rules | `~/.claude/rules/*.md` | ファイル一覧 |
-| Agents | `~/.claude/agents/*.md` | ファイル一覧 |
-| Skills | `~/.claude/skills/*/SKILL.md` | ディレクトリ一覧、SKILL.md の有無 |
-| Hooks | `~/.claude/settings.json` → `hooks` | 登録済みフック一覧 |
-| Commands | `~/.claude/commands/*.md` | ファイル一覧 |
-| Plugins | `~/.claude/plugins/installed_plugins.json` + `settings.json` → `enabledPlugins` | インストール済み vs 有効 |
-| Personas | `~/.claude/personas/*.md` | ファイル一覧 |
-| Teams | `~/.claude/teams/` | ディレクトリ一覧 |
-| Memory | `~/.claude/projects/*/memory/` | プロジェクトごとの MEMORY.md とエントリ数 |
+対象範囲のメモリについて、事実・好み・過去の観測・現在への指示を分けて現状と照合する。
+古い日付だけで消さない。訂正を依頼されている場合も、現在指定された正式な更新口を使い、元の記録を保全する。
+更新要求の保存と、新規セッションに反映されたことを区別する。
 
-### Phase 2: 整合性チェック
+静的な確認で解けない挙動は、許可された使い捨て fixture で観測する。
+必要な場合は `empirical-prompt-tuning` を使い、実行していない項目を成功扱いしない。
+監査のための外部書込み・実機操作・権限変更は別途その認可が必要である。
 
-rules/agents/skills/commands 間の相互参照が実在するか検証する。
+## 報告と完了
 
-チェック項目:
-- `rules/agents.md` のテーブルに列挙されたエージェント名が `agents/*.md` に存在するか
-- `rules/testing.md` 等で参照されているエージェント・スキルが実在するか
-- `settings.json` の hooks で参照しているコマンド・スクリプトが PATH 上に存在するか
-- `settings.json` の `enabledPlugins` にあるプラグインが `installed_plugins.json` に存在するか
-- `CLAUDE.md` から参照されているルール・スキルが実在するか
+利用者が判断できる形で、対象範囲・観測・実影響・正本・修正案・検証方法・未確認を対応付ける。
+重大度は現在の影響と到達可能性に基づけ、単なる参照名の欠落を一律 Critical としない。
+指示の改稿方針を決める場合は `meta-rules` の精緻さ基準を使う。
 
-### Phase 3: 陳腐化検知
-
-- **mtime が 180 日以上のファイル**: rules, agents, skills の中で長期間未更新のものをリスト
-- **settings.json と hooks/ ディレクトリの乖離**: hooks/ に実装があるのに settings.json で未参照、またはその逆
-- **無効化されたプラグイン**: `enabledPlugins: false` のまま放置されているもの
-- **plugins/cache 内の古いバージョン**: `lastUpdated` が 180 日以上前のもの
-
-### Phase 4: 重複・責務の重なり検出
-
-- rules と skills で同じトピックを扱っているもの（例: セキュリティが rules にも skills にもある）
-- 複数の skills が同じトリガー条件で発火しうるもの（description の類似度）
-- agents と skills で責務が曖昧なもの
-
-### Phase 5: ルール実効性マトリクス
-
-各 rule について、どのレベルで実効性があるか評価する。
-
-| Level | 意味 | 例 |
-|---|---|---|
-| 0 | 文書のみ。skill/agent/hook のどれにも接続されていない | — |
-| 1 | skill か agent の手順に組み込まれている | git-workflow → /pr skill |
-| 2 | hook で検出可能 | supply-chain-security → supply_chain_guard.py（ただし現在未接続） |
-| 3 | hook で強制ブロック + 直近の利用実績あり | security → aws-sso-login guard |
-
-Level 0-1 の rule は「書いてあるが守られるかは LLM 任せ」なので、hook 化の検討を提案する。
-
-### Phase 6: メモリドリフト検知
-
-`~/.claude/projects/*/memory/` を横断して以下をチェック:
-- **MEMORY.md のエントリ数**: 200 行上限に近づいていないか
-- **古いメモリ**: type: project のメモリで、記載日から 90 日以上経過しているもの
-- **現状との矛盾**: type: feedback のメモリが現在の rules と矛盾していないか（可能な範囲で）
-- **孤立ファイル**: MEMORY.md から参照されていないメモリファイル
-- **空プロジェクト**: memory ディレクトリはあるが中身が空、または MEMORY.md しかないもの
-
-## 出力フォーマット
-
-```markdown
-# Harness Audit Report — YYYY-MM-DD
-
-## Summary
-- 総ファイル数: N
-- 問題: Critical N / Warning N / Info N
-
-## Inventory
-| カテゴリ | 件数 | 前回比 |
-|---|---|---|
-| Rules | N | — |
-| ... | | |
-
-## Findings
-| Severity | カテゴリ | 問題 | 対象ファイル | 推奨アクション |
-|---|---|---|---|---|
-| Critical | 整合性 | agents.md に記載のエージェントが存在しない | rules/agents.md | テーブルから除去 or エージェント作成 |
-| Warning | 陳腐化 | 180日以上未更新 | skills/foo/SKILL.md | 内容を確認して更新 or 削除 |
-| ... | | | | |
-
-## Rule Effectiveness Matrix
-| Rule | Level | 接続先 | Gap |
-|---|---|---|---|
-| security | 3 | aws-sso-login hook | — |
-| testing | 1 | tdd-guide agent のみ | hook 未接続 |
-| ... | | | |
-
-## Memory Status
-| プロジェクト | エントリ数 | 古いメモリ | 孤立ファイル |
-|---|---|---|---|
-| tools | 3 | 0 | 0 |
-| ... | | | |
-
-## Proposed Actions
-1. ...
-2. ...
-```
-
-## 自動実行での利用
-
-Desktop Schedule で週次実行する場合:
-
-```
-claude -p "/harness-audit" --allowedTools "Read,Glob,Grep,Bash"
-```
-
-問題が見つかった場合は macOS 通知で知らせる。Notification hook の設定例:
-
-```json
-{
-  "hooks": {
-    "Notification": [{
-      "hooks": [{
-        "type": "command",
-        "command": "osascript -e 'display notification \"$CLAUDE_NOTIFICATION\" with title \"Harness Audit\"'"
-      }]
-    }]
-  }
-}
-```
+質問または指定範囲への回答に必要な証拠が揃ったら完了とする。問題件数や全ファイル走査を目的にしない。
+定期実行・通知・hook の導入は、この監査を実行するための前提にしない。
