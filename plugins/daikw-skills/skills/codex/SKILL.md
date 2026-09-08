@@ -1,62 +1,51 @@
 ---
 name: codex
-description: "Codex CLI を任意プロンプトで直接呼び出すセカンドオピニオン用 Skill。進捗を stdout でリアルタイム観察。定型レビュー用の /codex:review 等（codex-plugin-cc 由来）は別途インストールが必要で、未インストール環境ではこの Skill が唯一の Codex 連携手段になる。キーワード: codex, openai, セカンドオピニオン, コードレビュー, マルチモデル"
+description: "Codex CLIへ具体的な調査・レビュー・実装を委譲し、結果と根拠を取得する。別ハーネスからのセカンドオピニオンや明示的なCodex CLI実行依頼に使う。Codex製品の一般的な質問や、別セッションを必要としない通常作業には使わない。"
 ---
 
-# Codex Skill
+# Codex CLI Delegation
 
-`codex exec` コマンドを直接実行し、進捗をリアルタイムで観察しながら Codex CLI に作業を依頼する。
+委譲した問いへの答え、または許可された変更と検証結果を得る。
 
-## When to Use
+判断と固定条件: 依頼文の構成は問いに合わせる。対象repo、権限、CLIの実際の仕様、結果の検証は固定する。
 
-- Claude Code とは異なるモデルの視点でコードを分析したいとき（セカンドオピニオン）
-- **任意プロンプト**で Codex を叩きたいとき（観点指定・設計仮説の検証など）
-- read-only で安全に調査したいとき
-- 進捗を Claude がリアルタイムで stdout から観察したいとき
+## 委譲する内容
 
-## When NOT to Use（codex-plugin-cc がインストール済みの場合のみ）
+対象repo、問い、必要な資料、変更してよい範囲、期待する証拠を渡す。
+調査・レビューではread-onlyを既定とし、ファイル・設定・外部サービスを変更しないことを明示する。
+実装の委譲はユーザーが許可した変更範囲だけを渡す。別ハーネスにも、送信・merge・破壊的操作の権限を追加しない。
 
-`openai/codex-plugin-cc` plugin をインストール済みの環境でのみ、以下の使い分けが成立する（未インストールなら全て `/codex` にフォールバックする）:
+不足情報があっても仮定を明示して回答できる問いなら、その範囲で続行させる。
+結論を左右する不明点や利用できない能力は報告させ、「質問禁止」だけを理由に推測で実行させない。
+秘密や無関係な大量ログは渡さず、必要な関連箇所・根拠・反証してほしい点を示す。
 
-| やりたいこと | 使うもの |
-|---|---|
-| 任意プロンプトでセカンドオピニオン | **この Skill (`/codex`)** — インストール状況に関わらず常に使える |
-| 標準的な差分レビュー (git diff ベース) | `/codex:review`（要 `codex-plugin-cc`） |
-| 設計判断の pressure-test (adversarial) | `/codex:adversarial-review`（要 `codex-plugin-cc`） |
-| 長めの調査・修正委譲、resume/background 管理 | `/codex:rescue`（要 `codex-plugin-cc`） |
-| ジョブ状態確認 | `/codex:status` / `/codex:result` / `/codex:cancel`（要 `codex-plugin-cc`） |
+## 実行
 
-`codex-plugin-cc` が入っているかは `claude plugin list` の Installed plugins に `codex@openai-codex` があるかで確認する。`known_marketplaces.json` に `openai-codex` が登録されているだけではインストール済みとは言えない（marketplace 登録とインストールは別工程）。未インストールなら `claude plugin install codex@openai-codex` で導入するか、この Skill (`/codex`) をそのまま使う。
+インストール済みの `codex exec --help` で対応フラグを確認し、認証済みのCLIを使う。
+指定されたmodel/profileがあれば保持する。指定がなければ既存設定を使い、比較が目的なら実際に使われたmodelを結果と照合する。
+CLIが存在しない・認証できない場合は状況を報告し、設定変更や別modelへの置換を無言で行わない。
 
-> **注意:** `/codex:rescue` は write-capable がデフォルト。read-only セカンドオピニオン目的なら、`codex-plugin-cc` が入っていてもこの Skill を使う方が安全。
+複数行の依頼文はファイルに正確に書き、shellへ補間せずstdinで渡せる。
+次はこれらのフラグが利用できるversionでの例。
 
-## フォールバック（呼び出し名が解決しない場合）
-
-環境によってはローカル `.claude/skills/codex` の有無で呼び出し名の解決が変わり、`"skill":"codex"`（`daikw:` プレフィックスなし）で呼ぶと `Unknown skill: codex. Did you mean model?` になることがある。その場合は `daikw:codex` を試すか、`codex` サブエージェント（`Agent(subagent_type=codex)`）に直接委任する。
-
-## 前提条件
-
-`codex` コマンドが PATH にあり、認証済みであること。
-
-## 実行手順
-
-### 1. プロジェクトディレクトリの特定
-
-`--cd` に渡すディレクトリを決める（不明な場合は `git rev-parse --show-toplevel`）。
-
-### 2. コマンド実行
-
-プロンプト末尾には必ず以下を付ける:
-> 確認や質問は不要です。具体的な提案・修正案・コード例まで自主的に出力してください。
-
-```bash
-# 読み取り専用（デフォルト）
-codex exec --full-auto --sandbox read-only --cd "<project_directory>" \
-  "<タスク>。確認や質問は不要です。具体的な提案・修正案・コード例まで自主的に出力してください。"
-
-# ファイル変更を伴う場合
-codex exec --full-auto --sandbox workspace-write --cd "<project_directory>" \
-  "<タスク>。確認や質問は不要です。具体的な修正を実施してください。"
+```sh
+codex exec --sandbox read-only --cd '<project-directory>' - < '<request-file>'
 ```
 
-> **Note:** git リポジトリ外のディレクトリで実行する場合は `--skip-git-repo-check` を追加する。
+ファイル変更が許可された委譲では、その範囲を含む作業用checkoutを選び、必要な場合だけ `--sandbox workspace-write` を使う。
+保護を迂回するフラグや未確認の互換フラグを追加しない。repo外で実行する明示的な理由があり、CLIが要求する場合だけ `--skip-git-repo-check` を使う。
+
+## 結果を読む
+
+進捗を観察し、最終回答・終了状態・生成物を照合する。
+空の出力、idle表示、プロセス終了だけを有効なセカンドオピニオンや作業完了の証拠にしない。
+レビューは指摘箇所と根拠を評価し、実装ではdiffと関連検証を確認する。
+
+回答には採用した指摘・却下した理由・未確認事項を必要な範囲で示す。
+別modelの賛否の数ではなく証拠で結論を決める。
+
+## 別の実行機構がある場合
+
+ユーザーが指定したレビューpluginや管理中sessionがある場合は、利用可能性・権限・出力の取得方法を確認して使い分ける。
+plugin名がcatalogにあるだけでインストール済みと判断せず、read-only/writeの既定も機構ごとに確かめる。
+管理中のsessionへのprompt送信は、そのsessionを操作する許可と専用手順に従う。

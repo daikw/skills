@@ -1,8 +1,8 @@
 ---
 name: coding-agent-spec
-description: "Researches coding-agent specifications (Claude Code, Codex, Cursor, etc.), verifies facts from official docs/repos, and produces a structured comparison report. Triggers when users ask to investigate, compare, or update agent specs, hooks, config schemas, MCP integration, or CLI behavior. キーワード: コーディングエージェント仕様, hook仕様, Claude Code仕様, Codex仕様, Cursor仕様, agent spec. 特定エージェントの使い方を実行するだけの場面（既存スキルの呼び出しで足りるとき）では使わない。"
+description: "Claude Code・Codex・Cursor等の仕様を公式資料と実装で確認し、根拠付きで説明・比較する。hooks、config、MCP、CLI、session、skill互換性の調査に使う。既存スキルで足りる単純な操作の実行には使わない。"
 user-invocable: true
-argument-hint: "<対象エージェント名・調査トピック・比較範囲（省略時は横断調査）>"
+argument-hint: "<対象エージェント・仕様上の問い・比較範囲>"
 allowed-tools:
   - Read
   - Write
@@ -18,133 +18,40 @@ allowed-tools:
   - TaskList
 ---
 
-# coding-agent-spec
+# Coding Agent Specifications
 
-コーディングエージェント仕様を調査し、根拠付きの比較レポートを作成する。
+仕様上の問いに答え、対象version・根拠・不確かな点を明示する。
+比較では同じ軸と条件を揃え、ローカルの観測と製品全般の仕様を区別する。
 
-## Trigger
+判断と固定条件: 調査の順序と手段は問いに応じて選ぶ。対象の同一性、一次情報、根拠の射程は固定する。
 
-- エージェント仕様の調査（hooks / config / MCP / CLI / session）
-- 複数エージェントの仕様比較
-- 既存理解の更新（最新仕様との差分確認）
-- 実装前の互換性確認
+## 調査の組み立て
 
-## Input / Output
+依頼から対象エージェント、問い、対象versionまたは現在の環境、必要な成果物を押さえる。
+範囲が分かるなら調査を始め、結論を変える曖昧さだけを確認する。
+単体のフラグ確認に横断比較レポートを作らない。
 
-- Input: `$ARGUMENTS`（エージェント名、トピック、比較条件）
-- Output: Markdown レポート（要点、比較表、未確認事項、参照 URL）
+通常はその問いに対応する公式ページ、公開schema、CLI helpまたは実装箇所を確認する。
+製品別の必須調査手順があれば従う。既に正確なページやファイルが分かる場合はそこから読み、毎回トップページや全設定を読む必要はない。
+参照先を探す場合は [references.md](references.md) を使う。
 
-## Scope
+ローカル調査では名前・位置・version等のmetadataから対象を絞り、該当する設定キーや実装だけを読む。
+設定ディレクトリ全体や会話履歴へ一般語で再帰検索しない。認証情報、環境変数、private設定の値を出力しない。
 
-主な調査トピック:
+## 判断基準
 
-1. フックシステム（イベント、入出力、終了コード、制御）
-2. 設定ファイル（場所、形式、優先順位、スキーマ）
-3. CLI（コマンド、フラグ、環境変数）
-4. MCP 統合（設定方法、対応範囲、制約）
-5. スキル/エージェント拡張機構
-6. セッション管理（保存形式、復元、ログ）
+- 公式資料の仕様と、対象versionの実装・help・実測のどれを根拠にしたか示す。
+- 仕様と実装が食い違えば両方の対象versionと差異を示し、未検証の挙動を推定で埋めない。
+- 設定の優先順位、入力schema、イベント名、exit code、権限制御等は意味が変わるため正確に記す。名前の似た機能を同一視しない。
+- schemaは必要なフィールドと制約を引用・要約し、全体が必要な場合は原典や許可されたローカル成果物へリンクする。
+- 比較には同じ観測項目と適用範囲を使う。機能が「ない」と言う場合も確認できたversion・surfaceの範囲を示す。
+- 独立した製品・トピックがある場合は、利用可能で有効な委譲を使える。分担には同じ比較軸と根拠基準を渡す。
 
-主な調査対象エージェントとリソースは [references.md](references.md) を参照。
+## 出力と完了
 
-## Freedom Level
+問いへの回答を先にし、確定仕様、根拠URL/実装箇所、version・確認時点、Assumption、Unknownを必要な詳しさで返す。
+比較レポートが必要な場合は [report-template.md](report-template.md) を使い、指定された章立て・比較軸があれば保持する。
+保存を依頼されていればその場所へ出力する。
 
-- **低**: ユーザー指定範囲のみ調査。追加探索しない。
-- **中**: 指定範囲を中心に、関連する公式ページまで拡張。（`$ARGUMENTS` が曖昧なときのデフォルト）
-- **高**: 横断比較と差分分析まで実施し、必要なら追加トピックも提案。
-
-## Workflow
-
-### Phase 0: 依頼の正規化
-
-`$ARGUMENTS` を以下に正規化する:
-
-- targets: 対象エージェント（例: Claude Code, Codex, Cursor）
-- topics: 調査トピック
-- depth: 深さ（低/中/高）
-- deliverable: 出力形式（比較重視/単体調査）
-
-チェックリスト:
-```
-- [ ] 対象エージェントが確定した
-- [ ] 調査トピックが確定した
-- [ ] 深さ（低/中/高）を確定した
-```
-
-### Phase 1: ローカル情報の収集（プロジェクト非依存）
-
-ローカルで参照可能な設定・実装の痕跡を確認する。
-
-```bash
-# エージェント関連ファイルの候補を列挙
-find "$PWD" -type f \( -path "*/.claude/*" -o -path "*/.codex/*" -o -path "*/.cursor/*" \) 2>/dev/null
-
-# 仕様に関連するキーワードを横断検索（言語非依存）
-rg -n --hidden -l "(hook|hooks|mcp|session|transcript|config\.toml|settings\.json)" "$PWD" 2>/dev/null
-```
-
-チェックリスト:
-```
-- [ ] ローカル由来の Fact を抽出した
-- [ ] 推測と事実を分離した
-```
-
-### Phase 2: 公式ソース調査
-
-プログレッシブに調査する（必要箇所のみ深掘り）:
-
-1. 公式ドキュメントのトップ/目次を確認
-2. 該当トピックの一次情報ページを確認
-3. 不足時のみリポジトリ内の関連ファイルを確認（README/docs/schema/changelog）
-
-並列調査が有効な場合は Task を分割する（エージェント別またはトピック別）。
-
-Task 指示テンプレート:
-```text
-対象: <agent>
-トピック: <topic>
-必須:
-1) 公式ドキュメント URL と該当セクションを特定
-2) 公式リポジトリの一次情報を確認（最新安定版時点）
-3) 確定仕様（Fact）と未確認事項（Unknown）を分離して要約
-出力: 参照 URL / Fact / Unknown
-```
-
-チェックリスト:
-```
-- [ ] 参照元が一次情報中心になっている
-- [ ] 最新安定版の情報として確認した
-- [ ] Unknown を明示した
-```
-
-### Phase 3: 統合と比較表作成
-
-収集結果を統合し、比較可能な形式に揃える。
-
-必須構成: サマリー（3-5点）/ エージェント別仕様 / 比較表 / 未確認事項 / 参照 URL 一覧
-
-レポートテンプレートは [report-template.md](report-template.md) を参照。
-
-チェックリスト:
-```
-- [ ] 比較軸が揃っている
-- [ ] Fact / Assumption / Unknown が分離されている
-- [ ] 参照 URL が全主張に対応している
-```
-
-### Phase 4: 出力整形と保存（任意）
-
-ユーザーが保存を希望する場合のみファイル出力する。
-
-チェックリスト:
-```
-- [ ] ユーザー指定形式に整形した
-- [ ] 保存要否を確認した
-```
-
-## Quality Rules
-
-- 一次情報（公式 docs / 公式 repo）を優先する
-- 断定には根拠 URL を付ける
-- 推測は `Assumption:` として明示する
-- JSON スキーマがあれば全文引用する
+依頼された各論点に答えか明確な未確認理由が対応し、根拠が主張の範囲を支えていれば完了。
+設定の変更、モデルの切替、インストールやサービス起動は仕様調査の依頼だけでは行わない。

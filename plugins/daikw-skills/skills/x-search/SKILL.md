@@ -1,6 +1,6 @@
 ---
 name: x-search
-description: "xAI x_search Agent Tool で X (Twitter) を検索する CLI。キーワード/ハッシュタグ/特定ユーザの最近の投稿を取得。grok-4.3 経由。キーワード: x, twitter, ツイート, 投稿検索, xAI, grok, X 検索, X で調べる"
+description: "X (Twitter) の投稿を、キーワード・期間・投稿者から x-search CLI で検索する。X の投稿調査に使う。一般的なWeb検索やxAIモデルの設定・導入には使わない。"
 ---
 
 # /x-search - X (Twitter) ローカル検索
@@ -8,16 +8,14 @@ description: "xAI x_search Agent Tool で X (Twitter) を検索する CLI。キ�
 `x-search` CLI で xAI Live Search を叩く。KB ingestion / 調査タスク補助用。
 MCP は提供しない (tool list 肥大化を避ける progressive disclosure 設計)。
 
-## 前提
+## 利用する CLI
 
-このスキルの起動時、Claude Code はコンテキスト冒頭に `Base directory for this skill: <path>` という行を必ず注入する。以下の `$SKILL_DIR` はその行が示す実際のパスに読み替えること（インストール経路によって変わるため、固定パスを決め打ちしない）。
+現在インストール済みの `x-search` を使う。CLI の実装と認証情報の解決は CLI 側に閉じ、秘密値を表示しない。
+モデルが指定されている場合は、その設定と結果の確認可能なモデル情報を照合する。別モデルへの変更を推定しない。
 
-- CLI 本体: `$SKILL_DIR/scripts/x-search`（PEP 723 単一ファイル、`uv run --script` で実行）
-- 初回セットアップ: `cp "$SKILL_DIR/scripts/x-search" ~/.local/bin/ && chmod +x ~/.local/bin/x-search`（`~/.local/bin` が PATH 上にあること）。導入済みならこのステップは不要、`x-search` コマンドをそのまま使う
-- 任意: `XAI_MODEL` で利用モデルを上書き (default は `grok-4.3`)
-
-CLI の実装と credential 解決方式は CLI 側に閉じる。詳細は `$SKILL_DIR/scripts/README.md`。このスキル本体は
-「呼び方とコマンド体系」のみを扱う。
+CLI が見つからない場合は導入不足として報告する。同梱の PEP 723 script は依存の範囲指定を含むため、単にコピーして実行しない。
+新規導入では依存を固定・検証する既存の環境を確認し、供給元と実行する内容をレビューする必要がある。
+技能の利用依頼だけからインストール方式・課金サービス・認証の変更を追加しない。
 
 ## よく使うコマンド
 
@@ -32,20 +30,15 @@ CLI の実装と credential 解決方式は CLI 側に閉じる。詳細は `$SK
 
 `-n` (= `--limit`) は 1〜30 の範囲。default は 10。
 
-## 課金注意 (2026-05 時点)
+## 検索範囲と費用
 
-xAI の課金は **token + server-side tool** の独立 2 軸。1 search の概算:
-
-- input/output token (grok-4.3): $1.25 / $2.50 per 1M
-- x_search tool fee: **$5 / 1K calls = $0.005/call**
-- 1 query で 1〜3 円程度、複雑クエリ (内部で複数 search call 発火) なら 3〜6 円
-
-月 200 検索程度までなら現方式 (都度課金) が経済的。それ以上は Grok サブスク併設も検討。
+依頼から検索語・期間・投稿者・必要件数を決める。最新の料金や利用上限が判断に必要なら公式情報を確認する。
+過去の料金から現在の費用やサブスクリプションの優劣を断定しない。無条件に検索を再送しない。
 
 ## 既知の挙動
 
 - `x_get_trending` は **未提供** (xAI x_search tool は Trending API を持たないため。`x-search search "<topic> trending"` で代替可)
-- 検索結果は Grok が markdown 整形した自然文。raw post array が欲しい場合は `--format json`
+- 検索結果はモデルが生成・整形した内容。`--format json` もモデルへJSON形式を要求するもので、構造を保証するraw post APIではない。JSONはparseし、引用元・投稿URL・日付を照合して使う
 
 ## 参考
 

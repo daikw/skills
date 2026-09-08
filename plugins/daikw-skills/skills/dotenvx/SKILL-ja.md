@@ -1,150 +1,25 @@
 ---
 name: dotenvx
-description: dotenvx 環境変数管理ツールのリファレンス。暗号化、複数環境対応、GitHub Actions での使用例を提供。
+description: "dotenvx を使うプロジェクト、または導入を依頼された場合に、環境読み込み・暗号化・鍵ローテーション・CI 連携を扱う。一般的な環境変数の質問や別の秘密管理ツールの操作は対象外。"
 ---
 
-# dotenvx Skill
+# dotenvx
 
-dotenvx は .env ファイルの読み込み・暗号化を行う環境変数管理ツール。言語・フレームワーク非依存。
+依頼された環境を、許可されたプロセスへ秘密値を露出せずに渡す。対象リポジトリの導入済みバージョンと運用契約を正本にする。
 
-## インストール
+**Freedom Level: 混合。** 調査や組み込み方は状況から選ぶ。鍵とファイルの対応、優先順位、失敗条件、承認、復旧可能性は固定する。
 
-バージョン未固定・未検証のリモートインストールスクリプトは使わない（supply-chain-security ルールに抵触する。mise にも dotenvx 用プラグインは存在しないため選択肢にならない）。brew（Homebrew のビルド・署名検証パイプラインを通る）または npm のバージョン固定インストールを使う:
+- 対象 repo・環境ファイル・利用プロセス・鍵の保管元を特定し、まず名前とメタデータを見る。`.env.keys`、環境全体、秘密管理ツールの内容を表示しない。
+- 秘密値は既存の信頼できるプロセスと秘密管理経路だけで扱う。チャット、ツール出力、コマンド引数、差分、ログに載せない。`--quiet` は秘匿処理ではない。`get` / `keypair` を値の表示に使わない。
+- `.env` は変数展開・コマンド置換ができる設定ファイルである。出所が確認できるまで読み込んで実行せず、調査目的で `source` / `eval` しない。
+- CI secret 更新・deploy・merge・履歴書換え・プロバイダの認証情報更新は、会話で対象と操作への明示的な許可がある範囲で行う。未許可なら準備を済ませてから当該操作の許可を得る。
+- 変更前に既存差分と復旧できる暗号文・鍵の組を保全する。秘密鍵と避けられない平文は所有者だけが読めるよう保護し、Git・共有成果物から外す。
 
-```bash
-# brew（推奨。署名検証済みのリリースパイプライン）
-brew install dotenvx/brew/dotenvx
+必要な参照だけ読む:
 
-# npm（バージョンを固定する。現行版は `npm view @dotenvx/dotenvx version` で確認）
-npm install --save-exact -g @dotenvx/dotenvx@2.1.4
-```
+| 目的 | 参照 |
+|---|---|
+| 環境読み込み、優先順位・復号エラー、暗号化、CI | [Environment operations](references/operations.md) |
+| 鍵変更、漏洩の疑い、復旧 | [Rotation and recovery](references/rotation.md) |
 
-## 基本コマンド
-
-```bash
-# 環境変数を読み込んでコマンド実行
-dotenvx run -- node index.js
-
-# 特定の .env ファイルを指定
-dotenvx run -f .env.production -- npm start
-
-# 複数ファイル読み込み（後が優先）
-dotenvx run -f .env -f .env.local -- npm start
-
-# 環境変数を取得
-dotenvx get DATABASE_URL
-
-# 全環境変数を表示
-dotenvx get
-```
-
-## 暗号化
-
-```bash
-# .env を暗号化（DOTENV_PUBLIC_KEY, DOTENV_PRIVATE_KEY 生成）
-dotenvx encrypt
-
-# 特定ファイルを暗号化
-dotenvx encrypt -f .env.production
-
-# 復号化
-dotenvx decrypt
-
-# 暗号化されたファイルを実行（DOTENV_PRIVATE_KEY が必要）
-dotenvx run -- node index.js
-```
-
-### 暗号化の仕組み
-
-- `dotenvx encrypt` 実行で公開鍵/秘密鍵ペアを生成
-- `DOTENV_PUBLIC_KEY`: .env ファイル内に保存（暗号化用）
-- `DOTENV_PRIVATE_KEY`: ローカル環境または CI に設定（復号化用）
-- 環境別: `DOTENV_PRIVATE_KEY_PRODUCTION` で自動判定
-
-## オプション
-
-| オプション | 説明 |
-|-----------|------|
-| `-f, --env-file` | .env ファイル指定 |
-| `--overload` | 後続ファイルで上書き |
-| `--quiet` | 出力抑制 |
-| `--verbose` | 詳細表示 |
-| `--debug` | デバッグ情報表示 |
-
-## 複数環境の管理
-
-```
-.env                 # 共通設定
-.env.local           # ローカル上書き（gitignore）
-.env.production      # 本番環境
-.env.development     # 開発環境
-```
-
-```bash
-# 本番環境で実行
-dotenvx run -f .env.production -- npm start
-
-# 開発 + ローカル上書き
-dotenvx run -f .env.development -f .env.local -- npm run dev
-```
-
-## Key ローテーション
-
-private key が漏洩疑いになったとき、または定期的な rotation 時の手順。`dotenvx rotate` 専用コマンドは 2026/04 時点で存在しないため、decrypt → 新 key で encrypt を明示的に行う。
-
-**順序が最重要**: CI secret を **先に** 新 key に更新してから、新暗号文を merge する。逆だと旧 key で新暗号文を復号しようとして prod が落ちる。
-
-```bash
-# 1. 作業ブランチ + 旧 key 退避
-git switch -c chore/rotate-prod-dotenv-key
-set +o history
-OLD_PRIV="$DOTENV_PRIVATE_KEY_PRODUCTION"
-
-# 2. 旧 key で復号（平文に戻す）
-DOTENV_PRIVATE_KEY_PRODUCTION="$OLD_PRIV" dotenvx decrypt -f .env.production
-
-# 3. 既存 PUBLIC_KEY を削除してから再 encrypt（新 key ペアが生成される）
-sed -i.bak '/^DOTENV_PUBLIC_KEY_PRODUCTION=/d' .env.production
-dotenvx encrypt -f .env.production
-NEW_PRIV=$(dotenvx get DOTENV_PRIVATE_KEY_PRODUCTION -f .env.keys)
-
-# 4. CI secret を新 key に更新（merge より先）
-gh secret set DOTENV_PRIVATE_KEY_PRODUCTION --body "$NEW_PRIV" --env production
-
-# 5. 新暗号文を commit + merge + deploy
-git add .env.production && git commit -m "chore: rotate production dotenv key"
-git push && gh pr create --fill && gh pr merge --squash --auto
-
-# 6. クリーンアップ
-unset OLD_PRIV; set -o history
-rm .env.production.bak
-```
-
-**漏洩時の追加対応**:
-- git 履歴に残る旧暗号文は過去の旧 key で復号可能なまま。key ローテだけでは不十分
-- 暗号化されていた値自体（DB password、API key 等）も **並行して再発行** 必須
-- 履歴からの完全除去が必要なら `git filter-repo` を使うが、force push 影響が大きいので慎重に
-
-**ダウンタイム回避**: 一時的に `DOTENV_PRIVATE_KEY_PRODUCTION` と `DOTENV_PRIVATE_KEY_PRODUCTION_NEW` を並行保持し、デプロイ成功後に旧を削除する blue-green 運用も可。
-
-## GitHub Actions
-
-npm でバージョンを固定してインストールする（ローカル同様、CI でも未固定のリモートインストールスクリプトは使わない）。完全な例は `assets/gh_action_example.yaml` を参照。
-
-```yaml
-steps:
-  - uses: actions/checkout@v4
-
-  - name: Install dotenvx
-    run: npm install --save-exact -g @dotenvx/dotenvx@2.1.4
-
-  - name: Run tests
-    env:
-      DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
-    run: dotenvx run -- npm test
-```
-
-## 参考
-
-- https://github.com/dotenvx/dotenvx
-- https://dotenvx.com/docs
+完了報告には対象環境、導入バージョン、変更ファイル、外部変更の許可範囲、秘密値を含まない成否を残す。存在確認・ローカル復号・本番稼働は別々に評価し、未検証の項目は明記する。公式参照は [SKILL.md](SKILL.md) を参照。

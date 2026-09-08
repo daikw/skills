@@ -1,155 +1,51 @@
 ---
 name: browser-automation
-description: "Playwright MCP を使ったブラウザ自動化をガイドする。E2E テスト、スクリーンショット撮影、認証済みサービスへのアクセス、環境セットアップを支援する。「ブラウザ操作」「E2E テスト」「ブラウザテスト」「認証」などのリクエストで使用。"
+description: "ブラウザを操作してページ・UIの動作を確認し、E2E検証やスクリーンショットを作成する。利用可能な文書化済みのブラウザ機能を使い、必要な場合にPlaywright MCPの導入・認証・復旧を案内する。ブラウザが不要なAPI操作や認証方式の一般的な質問だけには使わない。"
 ---
 
-# Browser Automation with Playwright MCP
+# Browser Automation
 
-Playwright MCP を使ったブラウザ自動化ガイド。ローカル Web アプリのテスト、外部サービスへの認証済みアクセス、スクリーンショット撮影などに対応する。
+対象ページで依頼された操作・検証を行い、操作後の状態から結果を示す。
 
-Freedom Level: **中** — 基本パターンに従いつつ、対象に応じて柔軟に調整する。
+判断と固定条件: ページの調査方法と操作順序は状況に合わせる。対象、認証・操作権限、観測に基づく操作、結果確認は固定する。
 
-## Playwright MCP vs claude-in-chrome の使い分け
+## 利用する能力を選ぶ
 
-| 状況 | 使うもの |
+ユーザーが指定したブラウザ・タブ・アプリがあればそれを使う。
+通常は既に利用可能な、文書化されたブラウザツールを使い、そのツールの操作規則に従う。
+機能名やskillの例から、現在公開されていないAPIを推測して呼ばない。
+
+- 既存ログイン・タブを使う依頼: そのセッションを扱えるツールを選ぶ。別のプロファイルへCookieを複製する必要がなければ複製しない。
+- 再現性が必要なE2E: repoの既存テスト環境を優先し、必要なら隔離されたPlaywright contextを使う。
+- ツールが未設定: セットアップに必要な範囲だけ調べる。利用中の認証済みセッションを、セットアップのために置き換えない。
+
+## 観察・操作・確認
+
+対象URL・タブと現在の画面状態を確認し、観測した要素から操作対象を選ぶ。
+状態が変わり参照が古くなったら観測し直す。要素名・ref・selectorを盲目的に推測しない。
+
+依頼された操作を行った後は、その目的に対応する状態を確認する。
+DOMやアクセシビリティツリーは値・要素の状態、スクリーンショットはレイアウト・視認性の証拠に使う。
+スクリーンショット作成の依頼では保存した画像を確認する。全操作の後に同じ種類の証拠を一律に取る必要はない。
+非同期の変化は実際の完了条件で待ち、固定sleepだけを成功の根拠にしない。
+
+外部への送信、投稿、公開、購入等の操作は、セッションで得た明示的な許可の範囲に従う。
+ログインできることと、その操作をしてよいことを分ける。
+認証情報、Cookie、localStorageの値をツール出力・ログ・スクリーンショットへ露出させない。
+
+## 必要な資料だけ読む
+
+| 条件 | 資料 |
 |---|---|
-| クリーン環境からの自動化・ヘッドレス実行・E2E テスト | **Playwright MCP**（このスキル） |
-| ユーザーの実ブラウザセッション・既存ログインをそのまま使いたい | **claude-in-chrome** |
+| Playwright MCPを新規導入・設定する | [references/setup.md](references/setup.md) |
+| ログインが必要、認証状態を保持する必要がある | [references/authenticated-services.md](references/authenticated-services.md) |
+| 起動・要素操作・セッションの障害がある | [references/troubleshooting.md](references/troubleshooting.md) |
+| E2Eシナリオと検証証拠を設計する | [references/e2e-testing.md](references/e2e-testing.md) |
 
-storage-state のエクスポート・IAP 認証等、このスキルの手順は「新規 BrowserContext + Cookie 注入」を前提にしている。既にログイン済みの実ブラウザで完結する軽微な操作（既存タブの内容確認、簡単なクリック等）は claude-in-chrome の方が手早い。逆に、SPA（Slack 等）の一部 UI は `isTrusted` イベント判定が厳しく、Playwright MCP の `ClipboardEvent` 系操作が無反応になることがある（実戦で確認済み）。その場合も claude-in-chrome へのフォールバックを検討する。
+Playwright以外のツールを使うときは、上記のMCP固有コマンドをそのまま適用しない。
 
-## Playwright MCP 環境セットアップ
+## 完了
 
-### 事前インストール（固定版）
-
-`npx` のような一回限りランチャーは使わない（supply-chain rules で禁止）。事前に固定バージョンでグローバルインストールし、MCP サーバはインストール済みバイナリを直接指す。
-
-```sh
-pnpm add -g @playwright/mcp@0.0.77
-# または: bun add -g @playwright/mcp@0.0.77
-```
-
-グローバル bin 名は `playwright-mcp`。`pnpm add -g` の場合は pnpm のグローバル bin ディレクトリ（`pnpm config get global-bin-dir` 等で確認）が PATH 上にあることを確認する。
-
-### 推奨設定（`~/.claude.json`）
-
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "command": "playwright-mcp",
-      "args": [
-        "--isolated",
-        "--headless",
-        "--storage-state",
-        "/Users/<username>/.claude/playwright-storage-state.json"
-      ]
-    }
-  }
-}
-```
-
-バージョンを上げる場合は `pnpm add -g @playwright/mcp@<version>` を再実行してから `command`/バイナリの動作を確認する（`args` にバージョン指定は不要になる。バージョンはインストール時に固定する）。
-
-**フラグの意味:**
-- `--isolated` — MCP セッションごとに新しい BrowserContext を作成。複数セッションから同時利用可能（推奨）。永続プロファイルは使わず、`--storage-state` から Cookie を注入する
-- `--headless` — ブラウザウィンドウを表示しない。macOS ではデフォルト headed なので明示指定が必要
-- `--storage-state` — 認証済み Cookie/localStorage を BrowserContext 作成時に注入。`--isolated` と併用することで、クリーンな環境 + 認証済み状態を実現する
-
-### 設定の優先順位
-
-`~/.claude.json` の `mcpServers` > プラグインの `.mcp.json`。
-プラグイン側を編集しても `~/.claude.json` に同名キーがあるとそちらが優先される。
-
-### storage-state のエクスポート
-
-認証済みブラウザセッションがある状態で:
-
-```
-mcp__playwright__browser_run_code:
-  code: |
-    async (page) => {
-      await page.context().storageState({
-        path: '/Users/<username>/.claude/playwright-storage-state.json'
-      });
-    }
-```
-
-`storageState({ path })` で直接ファイルに書き出せる（`require('fs')` は使えない）。
-Cookie の有効期限が切れたら同じ手順で再エクスポートする。
-
-**重要:** storage-state は自動保存されない。ログイン後に明示的にエクスポートしないと保存されない。
-
-### IAP（Identity-Aware Proxy）認証サイトへのアクセス
-
-GCP IAP で保護されたサイト（例: `tools.gcp.<your-org>.dev`）にアクセスするには、
-IAP のセッション Cookie（`GCP_IAP_UID`, `__Host-GCP_IAP_AUTH_TOKEN_*`）が storage-state に含まれている必要がある。
-
-**初回セットアップ手順:**
-
-1. `~/.claude.json` を一時的に変更し、headed + 非 isolated モードで起動:
-   ```json
-   "args": ["--storage-state", "<path>"]
-   ```
-   （`command` は `playwright-mcp` のまま。`--headless` を外すだけ）
-2. Claude Code を再起動
-3. `browser_navigate` で IAP サイトを開く → Google ログイン画面がブラウザに表示される
-4. ブラウザ上で手動ログイン
-5. **ログイン後、`browser_run_code` で storage-state をエクスポート**（上記の手順）
-6. `~/.claude.json` を元の `--isolated --headless --storage-state` に戻す
-7. Claude Code を再起動
-
-**注意点:**
-- `--isolated` は MCP セッションごとに新しい BrowserContext を作り、`--storage-state` の Cookie をロードする
-- `--isolated` なし（永続プロファイルモード）では Cookie がディスク上のプロファイルに自動保存されるが、複数セッションで競合する
-- IAP Cookie の有効期限は約1時間（リフレッシュあり）。期限切れ時は上記手順を再実行する
-- 古い Playwright プロセスが残っていると新しいセッションが起動できないことがある: `pkill -f "playwright-mcp"` で掃除する
-
-## Reconnaissance-Then-Action
-
-**必ず「観察→操作→確認」の順で進める。** 盲目的にセレクタを推測しない。
-
-```
-1. navigate  — 対象ページを開く
-2. snapshot  — アクセシビリティツリーを取得（DOM 構造の把握）
-3. action    — click / fill_form / type 等（snapshot の ref を使う）
-4. screenshot — 結果を視覚的に確認
-```
-
-## 基本ツールの使い分け
-
-| ツール | 用途 |
-|--------|------|
-| `browser_navigate` | URL を開く |
-| `browser_snapshot` | アクセシビリティツリー取得。操作対象の `ref` を特定 |
-| `browser_click` | `ref` 指定でクリック |
-| `browser_fill_form` | フォーム入力 |
-| `browser_type` | キーボード入力 |
-| `browser_take_screenshot` | スクリーンショット撮影（ヘッドレスでも動作） |
-| `browser_evaluate` | 任意の JavaScript 実行 |
-| `browser_run_code` | Playwright API を直接実行（高度な操作向け） |
-| `browser_wait_for` | 要素出現やナビゲーション完了を待つ |
-
-### スクリーンショット
-
-`browser_take_screenshot` は `filename`（相対パス推奨）、`type`（`png` / `jpeg`）、
-`fullPage`（`true` でページ全体、`false` でビューポートのみ）を取る。
-
-撮影後に形式変換が必要な場合、macOS では追加ツールなしで変換できる。
-
-```sh
-sips -s format jpeg <file>.png --out <file>.jpg
-```
-
-## リファレンス
-
-- E2E テスト戦略・シナリオ設計: [references/e2e-testing.md](references/e2e-testing.md)
-- 認証が必要なサービス: [references/authenticated-services.md](references/authenticated-services.md)
-- 一般的なトラブルシューティング: [references/troubleshooting.md](references/troubleshooting.md)
-
-## よくある問題
-
-- **"Browser is already in use"** → `--isolated` が未設定、または別プロセスが同じプロファイルをロック中
-- **認証が必要なサービスにアクセスできない** → storage-state の Cookie が期限切れ。再エクスポートする
-- **要素が見つからない** → `browser_wait_for` で待機、または snapshot で実際の DOM を確認
-- **ヘッドレスなのにウィンドウが出る** → `~/.claude.json` の設定が優先されているか確認。プラグイン `.mcp.json` の編集だけでは反映されない
+確認したURL/画面と、依頼された振る舞いの結果、必要な画像・検証証拠を返す。
+認証・接続等で検証できなかった項目は未確認とし、操作したつもりで成功を報告しない。
+一時的な設定や自分が起動したプロセスは、対象を識別して元の状態へ戻す。他のセッションを停止しない。

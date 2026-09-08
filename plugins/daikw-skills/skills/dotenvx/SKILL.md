@@ -1,150 +1,40 @@
 ---
 name: dotenvx
-description: Use when working with the `dotenvx` env-var management tool — encrypting .env files, juggling multiple environments (.env.production / .env.staging / .env.ci), committing encrypted secrets to git with `.env.vault` / `.env.keys` / `.env.encrypted`, or wiring dotenvx into GitHub Actions. Trigger on `.env.vault` / `.env.keys` / `dotenvx` commands or symptoms (env-var leak risk, env per-stage management, encrypted secrets workflow) even if the user does not say "dotenvx" by name.
+description: "Configures and troubleshoots dotenvx encryption, environment loading, key rotation, and CI integration when the project uses dotenvx or the user requests it. General environment-variable questions and unrelated secret-manager operations are 対象外."
 ---
 
-# dotenvx Skill
+# dotenvx
 
-dotenvx is an environment variable management tool that loads and encrypts .env files. Language- and framework-agnostic.
+Make the intended environment available to the authorized consumer, with secrets kept out of agent output and version control. Work from the project's installed dotenvx release, file layout, and deployment contract.
 
-## Installation
+**Freedom Level: mixed.** Choose the investigation and integration approach from the task. Preserve exact key/file mapping, precedence, failure handling, authorization, and recovery boundaries below; these are not optional optimizations.
 
-Avoid unpinned remote install scripts (supply-chain-security policy; no `mise` plugin exists for dotenvx either). Prefer brew (goes through Homebrew's build/signing pipeline) or npm with an exact pinned version:
+## Boundaries
 
-```bash
-# brew (recommended — signed release pipeline)
-brew install dotenvx/brew/dotenvx
+- Identify the repository, environment file, consumer, and key source before reading values or making changes. Discover names and metadata first; do not dump environment files, `.env.keys`, process environments, or secret-manager contents.
+- Secret values may pass through the existing trusted runtime or secret store, not through chat, tool output, command arguments, diffs, or logs. `--quiet` only reduces logging; it does not redact values. Do not use `get` or `keypair` to display secrets.
+- Treat `.env` as active configuration: dotenvx can expand variables and execute command substitutions. Confirm its trusted origin before loading it; do not source or evaluate an untrusted file to inspect it.
+- Local preparation does not authorize CI secret writes, deployment, merge, history rewriting, or provider credential changes. Use explicit authorization already present in the conversation for the exact target and operation; otherwise prepare the change and obtain it before that operation.
+- Preserve existing source changes and a recoverable ciphertext/key pair before mutation. Keep private keys and any unavoidable plaintext owner-readable only, outside version control and shared artifacts.
 
-# npm (pin an exact version; check current with `npm view @dotenvx/dotenvx version`)
-npm install --save-exact -g @dotenvx/dotenvx@2.1.4
-```
+## Choose the needed reference
 
-## Basic Commands
+| Task | Read |
+|---|---|
+| Load variables, diagnose precedence/decryption, encrypt a file, or wire CI | [Environment operations](references/operations.md) |
+| Change encryption keys or respond to suspected exposure | [Rotation and recovery](references/rotation.md) |
 
-```bash
-# Load environment variables and run a command
-dotenvx run -- node index.js
+Read only the reference needed for the task. For an installed-version discrepancy, consult that release's help or official source before choosing commands.
 
-# Specify a particular .env file
-dotenvx run -f .env.production -- npm start
+## Completion evidence
 
-# Load multiple files (later ones take precedence)
-dotenvx run -f .env -f .env.local -- npm start
+Report the environment/file identity, installed version, changed paths, authorization scope for external changes, and secret-free pass/fail results. A presence check does not establish application correctness; a local decryption check does not establish deployed health. Leave any unverified deployment or recovery step explicit.
 
-# Get an environment variable
-dotenvx get DATABASE_URL
+## Official sources
 
-# Display all environment variables
-dotenvx get
-```
-
-## Encryption
-
-```bash
-# Encrypt .env (generates DOTENV_PUBLIC_KEY, DOTENV_PRIVATE_KEY)
-dotenvx encrypt
-
-# Encrypt a specific file
-dotenvx encrypt -f .env.production
-
-# Decrypt
-dotenvx decrypt
-
-# Run an encrypted file (requires DOTENV_PRIVATE_KEY)
-dotenvx run -- node index.js
-```
-
-### How Encryption Works
-
-- Running `dotenvx encrypt` generates a public/private key pair
-- `DOTENV_PUBLIC_KEY`: stored inside the .env file (for encryption)
-- `DOTENV_PRIVATE_KEY`: set in the local environment or CI (for decryption)
-- Per-environment: auto-detected via `DOTENV_PRIVATE_KEY_PRODUCTION`
-
-## Options
-
-| Option | Description |
-|-----------|------|
-| `-f, --env-file` | Specify the .env file |
-| `--overload` | Overwrite with subsequent files |
-| `--quiet` | Suppress output |
-| `--verbose` | Verbose output |
-| `--debug` | Show debug information |
-
-## Managing Multiple Environments
-
-```
-.env                 # Shared settings
-.env.local           # Local overrides (gitignore)
-.env.production      # Production
-.env.development     # Development
-```
-
-```bash
-# Run in production
-dotenvx run -f .env.production -- npm start
-
-# Development + local overrides
-dotenvx run -f .env.development -f .env.local -- npm run dev
-```
-
-## Key Rotation
-
-Procedure for when a private key is suspected of being leaked, or for periodic rotation. As of 2026/04 there is no dedicated `dotenvx rotate` command, so explicitly do decrypt → encrypt with a new key.
-
-**Order is critical**: update the CI secret to the new key **first**, then merge the new ciphertext. If reversed, prod will fail trying to decrypt the new ciphertext with the old key.
-
-```bash
-# 1. Working branch + stash old key
-git switch -c chore/rotate-prod-dotenv-key
-set +o history
-OLD_PRIV="$DOTENV_PRIVATE_KEY_PRODUCTION"
-
-# 2. Decrypt with the old key (back to plaintext)
-DOTENV_PRIVATE_KEY_PRODUCTION="$OLD_PRIV" dotenvx decrypt -f .env.production
-
-# 3. Remove the existing PUBLIC_KEY, then re-encrypt (a new key pair is generated)
-sed -i.bak '/^DOTENV_PUBLIC_KEY_PRODUCTION=/d' .env.production
-dotenvx encrypt -f .env.production
-NEW_PRIV=$(dotenvx get DOTENV_PRIVATE_KEY_PRODUCTION -f .env.keys)
-
-# 4. Update CI secret to the new key (before the merge)
-gh secret set DOTENV_PRIVATE_KEY_PRODUCTION --body "$NEW_PRIV" --env production
-
-# 5. Commit + merge + deploy the new ciphertext
-git add .env.production && git commit -m "chore: rotate production dotenv key"
-git push && gh pr create --fill && gh pr merge --squash --auto
-
-# 6. Cleanup
-unset OLD_PRIV; set -o history
-rm .env.production.bak
-```
-
-**Additional steps on a leak**:
-- Old ciphertext remaining in git history can still be decrypted with the past old key. Key rotation alone is insufficient
-- The encrypted values themselves (DB passwords, API keys, etc.) **must also be reissued in parallel**
-- If full removal from history is required, use `git filter-repo`, but be careful due to the large impact of force push
-
-**Avoiding downtime**: a blue-green approach that temporarily keeps both `DOTENV_PRIVATE_KEY_PRODUCTION` and `DOTENV_PRIVATE_KEY_PRODUCTION_NEW` in parallel and removes the old one after a successful deploy is also viable.
-
-## GitHub Actions
-
-Install via npm with a pinned version (same policy as local installs — no unpinned remote install scripts). See `assets/gh_action_example.yaml` for a complete example.
-
-```yaml
-steps:
-  - uses: actions/checkout@v4
-
-  - name: Install dotenvx
-    run: npm install --save-exact -g @dotenvx/dotenvx@2.1.4
-
-  - name: Run tests
-    env:
-      DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY }}
-    run: dotenvx run -- npm test
-```
-
-## References
-
-- https://github.com/dotenvx/dotenvx
-- https://dotenvx.com/docs
+- [Project source and CLI reference](https://github.com/dotenvx/dotenvx)
+- [Encrypted environment and private-key placement](https://dotenvx.com/docs/quickstart/encryption/)
+- [Private-key naming](https://dotenvx.com/docs/env-keys-file/)
+- [Strict run failures](https://dotenvx.com/docs/cli/run-strict/)
+- [Strict key checks](https://dotenvx.com/docs/cli/get-key-strict/)
+- [Cryptographic design](https://dotenvx.com/dotenvx.pdf)

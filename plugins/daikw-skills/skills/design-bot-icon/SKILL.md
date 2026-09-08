@@ -1,167 +1,56 @@
 ---
 name: design-bot-icon
-description: Slack / Discord / その他 bot のアイコンを対話的に提案・生成・配置するスキル。コンセプトヒアリング → 4-6 案を表で提示 → 採用案を SVG で生成 → 192/48/24px の 3 段プレビュー → PNG 変換 → アップロード手順までを 1 ストロークで進める。トリガー：「アイコン提案して」「bot icon」「Slack App アイコン」「Discord bot アイコン」「アイコンデザイン」「アイコン作って」。SVG 以外の生成手段（DALL-E / Midjourney / Stable Diffusion）は raster-generators.md に TODO スケルトンとして残している。
+description: "Slack / Discord等のbotアイコンを提案・制作し、小さな表示での識別性を確認して配置用ファイルを作る。botアイコンの新規作成・置換・比較に使う。一般的なイラスト制作やbot本体の開発には使わない。"
 ---
 
-# design-bot-icon
+# Design Bot Icon
 
-bot 用アイコン（Slack App / Discord bot / その他）の提案から配置までを支援する。
+botの用途と既存ブランドに合い、実際の表示サイズで識別できるアイコンを作る。
 
-## 主な用途
+判断と固定条件: モチーフ、配色、候補数、制作方法は依頼に合わせる。既存資産の保持、表示での検証、成果物形式、公開の権限は固定する。
 
-- 新規 bot を立てたタイミングで、ブランド色や用途を踏まえたアイコン候補を出す
-- 既存アイコンが暫定で済まされているプロジェクトに、本採用候補を提示する
-- 24px に縮小しても判別できる視認性を担保する
+## コンセプトを決める
 
-## 守ること
+依頼・既存のmanifestや画像から、bot名、用途、プラットフォーム、ブランド、残す特徴を確認する。
+不足は成果物を大きく変えるものだけ尋ねる。案の選択を任されている場合は理由を示して制作まで進む。
+比較を求められた場合は意味のある違いを持つ候補を示し、ユーザーが求めた数を守る。
+採用案が既に決まっている場合は再び候補出しや採用確認を挟まない。
 
-- **コンセプトを最低 4 案出す**: モチーフ単発の案だけだと比較できない。表形式で
-  メリット / デメリットを併記する
-- **3 段プレビュー必須**: 192px (詳細表示) / 48px (通常) / 24px (サイドバー) を
-  並べた preview.html を必ず生成する。24px で潰れるデザインは即却下対象
-- **採用版を本ファイル名にコピー**: `magnifier.svg` のようなコンセプト名のまま
-  運用しない。`<bot-name>.svg` / `<bot-name>.png` にリネームする
-- **不採用案は捨てない**: `proposed/` に保管。別 bot や差し替え時に再利用できる
-- **manifest 注意書き**: Slack App では manifest 経由でアイコン設定不可。App 作成
-  後に管理画面から手動アップロードが必要なことを README に必ず書く
+モチーフの伝わり方、既存botとの区別、小サイズでの形・文字の見え方を比べる。
+採点記号や色数の上限だけで良否を決めず、実際の画像で確認する。
 
-## ワークフロー
+## 制作方法を選ぶ
 
-### Step 1. コンテキスト収集
+通常は編集しやすいSVGを使う。既存のvector資産やrepoのアイコン体系があれば踏襲する。
+[svg-design-guidelines.md](svg-design-guidelines.md) はSVGの構造・形状の例を必要時に参照する。
+キャラクター、写真、質感、bitmapの編集を求められた場合は [raster-generators.md](raster-generators.md) に従い利用可能な画像生成・編集機能へ渡す。
+プラットフォームの形式・サイズの要件は現行の公式仕様で確認し、作画座標をupload制約と混同しない。
 
-最低限ヒアリングする項目：
+## 表示と成果物
 
-- **bot の名前**: ファイル名・display name に使う
-- **対象プラットフォーム**: Slack / Discord / Teams / その他（推奨サイズが変わる）
-- **bot の主用途**: 通知 / 検索 / 監視 / 司会 / 等。モチーフ選定の核
-- **ブランド色**: 既存の Slack App manifest や会社ガイドラインがあれば優先
-- **雰囲気の希望**: ポップ / 真面目 / ミニマル / 親しみ
-- **既存のキャラ・マスコット有無**: 既存資産があれば踏襲する
+既存の出力契約がなければ `<repo>/misc/icons/` を使う。候補はconcept名、採用版は `<bot-name>.svg` と `<bot-name>.png` とする。
+raster由来ではPNGと元の編集可能な素材を残し、存在しないSVGを作成済みとしない。
+既存ファイルは内容と用途を確認してから更新し、不採用案は `proposed/` に保管できる。
 
-不明な項目は AskUserQuestion で 2-3 個に絞って一度に聞く。全部聞き出してから
-案出しに進む。
+従来の比較用presetは `preview.html` に192 / 48 / 24pxを並べる形式。
+これは表示比較の初期値であり、プラットフォーム仕様やユーザー指定サイズがあればそちらで確認する。
+実画面に近い背景・cropで、主要モチーフ、文字、色に依存しない識別、必要なコントラストを確認する。
+プレビューを生成しただけで目視検証済みとせず、保存した画像を確認する。
 
-### Step 2. コンセプト案提示
+PNG変換は既存toolを使う。例えばインストール済みのlibrsvgで指定サイズを出力できる。
 
-4-6 案を表形式で出す。各案には：
-
-- **モチーフ**: 何をビジュアル化するか（例: 虫眼鏡 × 文書）
-- **印象**: ユーザーが受け取る感情・読み取る意味
-- **24px 判別性**: 潰れにくさの主観評価（◎ / ○ / △）
-- **メリット / デメリット**: 1 行ずつ
-
-例：
-
-| 案 | モチーフ | 印象 | 24px | メリット | デメリット |
-|---|---------|------|------|---------|-----------|
-| 1 | フクロウ × 書類 | 親しみ・キャラ立ち | ◎ | 覚えやすい、固有性高い | 真面目な業務文脈とややギャップ |
-| 2 | ベル × 書類 | 通知役を直接表現 | ○ | 機能的、迷いがない | 凡庸、差別化弱い |
-| 3 | 虫眼鏡 × 番号 | 検索・調査特化 | △ | 機能を最も正確に伝える | 文字が潰れやすい |
-| 4 | 鍵穴 × 文書 | ブランド統合 | ○ | 社内文脈にハマる | 解釈に説明が必要 |
-
-ユーザーから「この案でいって」と回答が来るまで、複数案を維持。1 案だけ深堀り
-しない。
-
-### Step 3. SVG 生成
-
-採用案を SVG で書く。要件：
-
-- **viewBox 512x512**: Slack / Discord 共通の最大表示サイズに合わせる
-- **角丸背景**: `<rect width="512" height="512" rx="96" fill="<brand>"/>` から開始
-- **フラットデザイン**: グラデーション・影・複雑な装飾は避ける（24px で消える）
-- **2-4 色まで**: 背景・主要モチーフ・アクセント・白の 4 色程度
-- **太い線**: 24px 縮小時の視認性のため `stroke-width` は最低 4px
-- **テキストは大きく**: 文字を入れるなら 100px 以上、英字 1〜2 文字まで
-
-詳しい設計指針は [`svg-design-guidelines.md`](./svg-design-guidelines.md) 参照。
-
-保存先：`<repo>/misc/icons/<concept>.svg`（採用前）または `<bot-name>.svg`（採用後）
-
-### Step 4. プレビュー HTML 生成
-
-`preview.html` を `misc/icons/` に置く。各案を 3 段で並べる：
-
-```html
-<div class="row">
-  <img src="x.svg" width="192">  <!-- 詳細表示 -->
-  <img src="x.svg" width="48">   <!-- 通常表示 -->
-  <img src="x.svg" width="24">   <!-- サイドバー -->
-</div>
+```sh
+rsvg-convert -w <required-width> -h <required-height> <bot-name>.svg -o <bot-name>.png
 ```
 
-- 背景色をグレーに（実際の Slack 表示に近づける）
-- 各サイズにラベルを添える
-- 採用前は複数案を並列、採用後は 1 案 + 採用根拠
+macOSのQuick Look等を使った場合も、背景・crop・透過・サイズが期待通りか出力を確認する。
+新規依存は必要性と配布元・固定versionを確認してから導入する。
 
-`open misc/icons/preview.html` でブラウザに開いて、ユーザーに視認性を確認して
-もらう。
+## 配置と完了
 
-### Step 5. PNG 変換
+制作から配置準備までの依頼なら、採用ファイル、プレビュー、デザイン理由、再生成方法、必要なアップロード手順を既存READMEへ記す。
+アイデアの提案だけなら候補と判断材料で完了する。
 
-採用後は PNG を書き出す。優先順位：
-
-```bash
-# 1. librsvg（推奨。Homebrew: brew install librsvg）
-rsvg-convert -w 512 -h 512 patent-bot.svg -o patent-bot.png
-
-# 2. macOS 標準（品質はやや劣る）
-qlmanage -t -s 512 -o . patent-bot.svg
-mv patent-bot.svg.png patent-bot.png
-```
-
-`which rsvg-convert` で利用可否を確認。なければ `brew install librsvg` を提案。
-
-### Step 6. 採用版にリネーム
-
-```bash
-cp <concept>.svg <bot-name>.svg
-cp <concept>.png <bot-name>.png
-mkdir -p proposed && mv <非採用>.svg <非採用>.png proposed/
-```
-
-### Step 7. アップロード手順 / README
-
-`misc/icons/README.md` を作成または更新：
-
-- ファイル一覧
-- デザイン根拠
-- SVG → PNG 変換コマンド
-- アップロード手順（プラットフォーム別）
-
-**Slack App の場合**:
-
-1. https://api.slack.com/apps の対象 App を開く
-2. **Basic Information** → **Display Information** → **App icon**
-3. 512x512 PNG をアップロード
-4. **Background color** を SVG の背景色 hex に合わせる
-
-**Discord bot の場合**:
-
-1. https://discord.com/developers/applications の Application を開く
-2. **General Information** → **App Icon** から PNG をアップロード
-3. 推奨は 512x512 PNG（最大 1024x1024 まで対応）
-
-manifest や設定ファイル経由でアイコン設定はできないことが多い。手動アップロード
-が必要な点を必ず README に書く。
-
-## 拡張: SVG 以外の生成
-
-DALL-E / Midjourney / Stable Diffusion を使った raster 生成は
-[`raster-generators.md`](./raster-generators.md) にスケルトンを残してある。
-
-現状このスキルは **SVG 生成のみ実装**。raster は TODO。raster を選びたい
-ユーザーには `raster-generators.md` のテンプレを提示し、実行は手動で進めて
-もらう（OpenAI API キー設定や Midjourney Discord 招待などはユーザー側責任）。
-
-## チェックリスト
-
-完了前に確認：
-
-- [ ] コンセプト案を 4 つ以上提示した
-- [ ] 各案にメリット / デメリットを併記した
-- [ ] 採用案を 3 段プレビュー（192/48/24px）で視認性確認した
-- [ ] SVG → PNG 変換が完了した
-- [ ] `<bot-name>.svg/png` にリネームした
-- [ ] 不採用案を `proposed/` に保管した
-- [ ] README にアップロード手順を書いた
-- [ ] manifest 経由でのアイコン設定不可を明記した
+Slack / Discordの管理画面やAPIへの反映方法は現行の公式仕様で確かめる。「manifestでは常に不可能」といった未確認の断定を残さない。
+実際のupload・公開はユーザーの明示許可がある範囲で行い、反映後の対象botを照合する。
+最終報告では生成・表示確認・公開反映のどこまで終わったかを区別する。

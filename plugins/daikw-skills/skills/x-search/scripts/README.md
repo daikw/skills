@@ -1,48 +1,24 @@
-# x-search
+# x-search CLI source
 
-CLI wrapper for the xAI [`x_search`](https://docs.x.ai/developers/tools/x-search)
-Agent Tool. PEP 723 single-file Python — `uv` resolves `httpx` from the
-inline metadata, so no manual venv setup is needed.
+This directory contains the historical PEP 723 Python implementation of the xAI x_search CLI.
+Its inline `httpx` requirement is a version range. Copying and executing this source can resolve new third-party code; the source is not an approved fresh-install recipe.
 
-## Install
+## Existing installation
 
-```sh
-mkdir -p ~/.local/bin
-cp x-search ~/.local/bin/
-chmod +x ~/.local/bin/x-search
+Use the already identified `x-search` executable and its installed command help. Credential resolution belongs to that executable; never print tokens or dotenv private keys for diagnosis.
+
+```text
+x-search search <query> [-n 1..30] [--language ja] [--from-date YYYY-MM-DD] [--to-date YYYY-MM-DD] [--format markdown|json]
+x-search user <@username> [-n 1..30] [--filter <topic>] [--from-date ...] [--to-date ...] [--format ...]
 ```
 
-Make sure `~/.local/bin` is on your `PATH`, and that `uv` is installed:
+JSON output is requested from the model, not guaranteed to be a raw, validated post array. Parse it and verify claimed sources and timestamps.
 
-```sh
-curl -LsSf https://astral.sh/uv/install.sh | sh   # https://docs.astral.sh/uv/
-```
+## Missing installation
 
-## Credentials
+Report the missing prerequisite. Establish a pinned, isolated dependency environment and review the actual source and supply-chain requirements before a separate approved installation. Do not use an unverified remote installer or run this ranged-dependency script merely to make the command available.
 
-`x-search` resolves credentials internally. It accepts a directly exported
-`XAI_API_KEY`, and also bootstraps `dotenvx` with `DOTENV_PRIVATE_KEY` to
-decrypt `~/.config/dotenvx/.env` when needed.
+## Cost and scope
 
-```sh
-x-search search "claude code 4.7" -n 10
-```
-
-## Usage
-
-```sh
-x-search search "<query>" [-n 1..30] [--language ja] [--from-date YYYY-MM-DD] [--to-date YYYY-MM-DD] [--format markdown|json]
-x-search user   <@username> [-n 1..30] [--filter "<topic>"] [--from-date ...] [--to-date ...] [--format ...]
-```
-
-See [`../SKILL.md`](../SKILL.md) for the Claude Code skill that drives this CLI.
-
-## Pricing
-
-xAI bills two axes independently — tokens and the server-side `x_search`
-tool call. As of 2026-05:
-
-- grok-4.3 tokens: \$1.25 / \$2.50 per 1M (in / out)
-- `x_search` tool fee: \$5 per 1K calls (= \$0.005/call)
-
-Expect ~1–6 JPY per query depending on complexity.
+Select query, dates and result count from the current request. Verify current official pricing when cost changes a decision; old per-query estimates are not current billing evidence.
+See [the skill entrypoint](../SKILL.md) for the operation boundary and [xAI documentation](https://docs.x.ai/developers/tools/x-search) for the upstream tool.

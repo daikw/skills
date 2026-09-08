@@ -1,105 +1,49 @@
-# Verifier-Type Recon パターン
+# Verifierの確認
 
-seed 文字列とコードベースから verifier の種類を推定し、対応する具体的コマンド / metric / artifact を抽出する。
+verifierはユーザーの成功条件を観測する手段である。
+語彙やファイルの存在だけから選ばず、内容と適用環境を読む。
 
-## 3 種類の verifier
+## command
 
-| Type | 真実の source | 典型キーワード | コードベースから抽出するもの |
-|---|---|---|---|
-| **command-verifier** | shell command の exit code or 出力 | test / lint / build / grep / git diff / typecheck | `npm test`, `cargo test`, `uv run pytest`, `tsc --noEmit` etc. |
-| **metric-verifier** | parseable な数値 | success_rate / accuracy / loss / reward / score / BLEU / coverage / latency | eval script, benchmark, training validation |
-| **artifact-verifier** | ファイルの存在 / 内容 / 構造 | word count / front-matter / index / TOC / summary | grep / find / yq / 自前 validator |
+package managerのscripts、Makefile/justfile/miseのtask、既存test、CI job等から、実際のコマンドと対象を確認する。
+manifestがあるだけで `npm test` 等が実装済みと判断しない。
+追加のtoolを導入する前に既存の検証層を使う。
 
-## 推定優先順位 (高 → 低)
+生成文にはコマンド、cwd、必要な環境、期待する結果、何を証明するかを書く。
+exit 0でも対象testが収集されていない場合や別versionを検査した場合は成功の証拠にならない。
+例は確認したrepoコマンドへ置き換える。
 
-1. **metric-verifier**: success_rate / accuracy / loss / reward / BLEU / win_rate / coverage / latency / p95 / throughput 等の数値メトリクス語が含まれる → 最優先
-2. **command-verifier**: test / lint / build / typecheck / clippy / mypy / vet / grep 等のコマンド名が含まれる
-3. **artifact-verifier**: word count / structure / front-matter / summary / TOC / index / orphan / duplicate 等の語が含まれる
-4. **判別不可**: 上記いずれも含まれない → AskUserQuestion で 1 問確認
-
-## verifier 抽出: command-verifier
-
-コードベースから以下を確認:
-
-- `package.json` → `scripts.test` / `scripts.lint` / `scripts.build` の中身
-- `pyproject.toml` → `[tool.ruff]` / `[tool.mypy]` / pytest 設定
-- `Cargo.toml` → `cargo test`/`cargo clippy`
-- `go.mod` → `go test ./...` / `go vet ./...`
-- `Makefile` / `justfile` → ターゲットの中身
-- `.github/workflows/` → CI で実際に走るコマンド (最も信頼できる)
-
-抽出例:
-
-```
-- `npm test` exits 0
-- `npm run lint` outputs no errors
-- `npm run build` exits 0
-- `npx tsc --noEmit` outputs no errors
+```text
+Verify in <repo> using <existing check command>.
+Confirm <required behavior and expected result> on the changed revision.
 ```
 
-## verifier 抽出: metric-verifier
+## metric
 
-コードベースから以下を確認:
+測定scriptの入力、datasetや環境、単位、計算、出力schemaを確認する。
+ユーザーや既存の評価契約が固定した比較条件を保持する。
+目標値は出典付きで使い、欠損・未実行・startup失敗をゼロ点にしない。
 
-- `eval.py` / `evaluate.py` / `bench.py` / `benchmark.sh` の存在
-- 訓練 config (`configs/*.yaml` / `train.py`) で定義されたメトリクス
-- `.github/workflows/` の bench / eval job
-
-抽出例:
-
-```
-- `python eval.py --task pick_place 2>&1 | grep success_rate | awk '{print $2}'` produces a number
-- the number is >= 0.99
-- print the parsed number to stdout each iteration
+```text
+Use <existing evaluator> with the inputs and metric defined in <evaluation contract>.
+Compare the measured result with <user-specified target>.
+Record input identity, environment, raw result and interpretation.
 ```
 
-contract が複雑な場合は `EVAL_CONTRACT.md` を別途参照させる:
+## artifact
 
-```
-- prove by running `python eval.py --task X` whose output contract is in `EVAL_CONTRACT.md`
-- read EVAL_CONTRACT.md before parsing
-```
+成果物の内容・構造・参照関係が要求を満たすか確認する。
+既存validatorがあれば使い、ファイル存在や文字数だけで内容の正しさを代用しない。
+文書・設計では、指定された論点・根拠・制約・表示結果などを観測可能な受入条件にできる。
 
-## verifier 抽出: artifact-verifier
-
-コードベースから以下を確認:
-
-- 対象ディレクトリの構造 (`ls -la`)
-- 想定されるファイルパターン (e.g., `inbox/*.md`)
-- 既存の validator script
-
-抽出例:
-
-```
-- every file in `inbox/clippings/` has a `summary:` field in front-matter
-- prove by running:
-    `for f in inbox/clippings/*.md; do head -20 "$f" | grep -q "^summary:" || echo "missing: $f"; done`
-  and seeing no output
-- print the file count before and after
+```text
+Produce <artifact> covering <required content>.
+Verify <content/structure/rendering condition> using <existing checker or inspection method>.
 ```
 
-## Codex 流 audit との対応
+## 複数の検証と未確認
 
-Codex /goal の audit-first 哲学 (agent 自身が完了を監査) と verifier-type の対応:
-
-| Verifier | Codex audit でやること |
-|---|---|
-| command-verifier | コマンドを実行 → exit code / 出力を agent 自身が読む |
-| metric-verifier | スクリプト実行 → 数値を parse → 閾値判定 |
-| artifact-verifier | ファイル走査 → grep / yq / wc 等で構造確認 |
-
-condition には audit ステップを明示的に書いてよい (Codex は CC と違って evaluator が agent 自身)。
-
-## 判別不可時の AskUserQuestion
-
-判別できない場合、以下 1 問のみ:
-
-```
-このタスクの「完了」は何で判定する？
-- A: 特定コマンドが exit 0 / 出力に文字列を含む (test/lint/build 等)
-- B: 数値メトリクスが閾値を満たす (success rate / accuracy 等)
-- C: 特定ファイルが存在する / 特定の内容を持つ
-- D: その他 (自由記述)
-```
-
-返答を受けたら対応する verifier-type で進める。
+同じ目的に複数の検証が必要なら組み合わせる。成功条件を変えず、単位や比較対象を揃える。
+生成時のverifier確認と、目標実行後の合格は別である。
+生成時に実行していないコマンドを実行済みとは書かない。
+検証手段が分からないときは、どの成果の何が観測できないかを明示して確認する。
