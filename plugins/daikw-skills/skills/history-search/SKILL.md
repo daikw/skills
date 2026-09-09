@@ -30,15 +30,15 @@ ls ~/.claude/projects/ | grep -i <キーワードの断片>
 ```
 ~/.codex/sessions/<YYYY>/<MM>/<DD>/
     rollout-<timestamp>-<session-uuid>.jsonl   # 1ファイル = 1セッション、日付別に格納
-~/.codex/history.jsonl        # 全セッションのユーザー発言のみ {session_id, ts(unix秒), text}
+~/.codex/history.jsonl        # 対応クライアントが保存した入力履歴 {session_id, ts(unix秒), text}
 ~/.codex/session_index.jsonl  # セッション名の索引 {id, thread_name, updated_at}
 ```
 
 **Claude Code と構造が根本的に違う点**（推測しにくいので明記）:
 
-- **プロジェクト別ではなく日付別**。ディレクトリにもファイル名にもプロジェクト情報がない。作業ディレクトリは各 rollout ファイル先頭行の `session_meta` に `"cwd":"..."` として入っている
-- **rollout ファイルは先頭行にシステムプロンプト全文（`base_instructions`）を含む**。一般的な語で全文 grep すると全ファイルにヒットして検索にならない。まず `~/.codex/history.jsonl`（1 行 = 1 ユーザー発言）で当たりをつけ、`session_id` からファイルを特定するのが速くて確実
-- `session_index.jsonl` は全セッションを網羅しない（rollout ファイル数より大幅に少ないことがある）。索引にないからといってセッションが存在しないとは限らない
+- **プロジェクト別ではなく日付別**。ディレクトリにもファイル名にもプロジェクト情報がない。現行形式では、作業ディレクトリは rollout ファイル先頭行の `session_meta` に `"cwd":"..."` として入っている。古い形式では実際のフィールドを確認する
+- **rollout ファイルは `session_meta` にシステムプロンプト（`base_instructions`）を含む場合がある**。一般的な語で全文検索すると注入された指示までヒットする。まず軽量な `~/.codex/history.jsonl` で当たりをつけ、`session_id` からファイルを特定する。ただし、見つからない場合は rollout など別の保存先も調べる
+- `history.jsonl` と `session_index.jsonl` は、どちらも全セッションを網羅するとは限らない。クライアント・保存設定・版・保持期間によって収録範囲が異なる。索引にないことを、セッションや入力が存在しない根拠にしない
 
 ## 検索コマンド
 
@@ -63,7 +63,7 @@ grep -rl "キーワード" ~/.claude/projects/ --include="*.jsonl" \
 ### Codex CLI 履歴
 
 ```bash
-# 1. まずユーザー発言から検索して session_id を得る（軽い・誤ヒットしない）
+# 1. 保存された入力テキストから検索して session_id を得る（軽量な入口）
 grep -i "キーワード" ~/.codex/history.jsonl
 
 # 2. session_id から rollout 本体を特定（ファイル名末尾が session_id）
@@ -76,13 +76,33 @@ grep -rl "キーワード" ~/.codex/sessions --include="*.jsonl"
 # プロジェクト（cwd）でセッションを絞り込む
 grep -rl '"cwd":"[^"]*<プロジェクト名の断片>' ~/.codex/sessions --include="*.jsonl"
 
-# セッション名（初回発言）の索引を眺める
+# セッション名の索引を眺める（本文の発言履歴ではない）
 grep -i "キーワード" ~/.codex/session_index.jsonl
 ```
 
 ## 単純なキーワード検索を超えた用途
 
 エラー率の集計、同一文字列の異常反復（degeneration）検出、特定期間のセッション一覧など、grep 一発では終わらないクエリは [references/recipes.md](references/recipes.md) の再利用可能なレシピを参照する（Claude Code 履歴の jsonl 構造前提。Codex 履歴に流用する場合はフィールド名の読み替えが必要）。ゼロから正規表現を組み立て直すと試行錯誤が数回に及びやすい。
+
+### 集計とプロンプトの著者判定
+
+検索ヒットは候補の発見であり、全件収録や本人の執筆を証明しない。集計や文体分析では、
+対象期間・クライアント・保存先・数える単位を決め、欠損と除外件数を記録する。
+
+- **保存先を照合する**。Claude の `history.jsonl` と `projects/` の transcript は保持範囲が一致するとは限らず、貼付本文がプレースホルダーだけのこともある。Codex では版によって `thread_history_*.sqlite` に `userMessage` の投影が存在し、入力集合を得る入口になる。ファイル名・schema・収録範囲を読み取りで確認し、rollout や history と照合する。内部 DB の版や網羅性を固定の保証として扱わない。
+- **会話ロールと入力を分ける**。Claude の `type=user` には `tool_result`、Skill 展開、通知、圧縮要約も入る。Codex の `role=user` にも AGENTS・環境・goal などの注入内容が入る。利用可能な metadata、内容ブロック種別、元の tool call を使って区別し、フィールドが欠ける古い記録は未判定として残す。
+- **同一イベントを重複集計しない**。history、rollout、投影、音声転記の対応や、fork・subagent が継承した親の文脈を確認する。同じ文面の再提出は別イベントになり得るため、テキスト一致だけで全体を重複排除しない。異なる保存形式の ID が共通とも限らない。
+- **送信経路と本文の著者を分ける**。`origin.kind=human`、`promptSource=typed`、`user.text`、`UserMessage`、CLI/SDK の別は、人が文章を書いた証拠ではない。人によるモデル出力の貼付や、モデルによる送信があり得る。親の tool call や先行する assistant 出力との一致は来歴の根拠になるが、その出力自体が人の文章を引用していないかも確かめる。一致しないことも人の執筆の証明にはならない。
+- **推定と確定を分ける**。著者のラベルは人・モデル・混合・不明を保持し、モデルの提案と本人の確認を別に記録する。モデルが書き、本人が採用した指示は、本人が求める成果の根拠にはなるが、本人の文体の根拠とは限らない。
+
+履歴には秘密や個人情報が含まれ得る。まずファイル名・schema・metadata を絞って調べ、
+本文の出力・共有は必要な範囲に限定して秘匿する。検証用に履歴や内部 DB を更新しない。
+
+Codex の保存形式の確認には、公式実装の
+[入力履歴](https://github.com/openai/codex/blob/45134c04632b971776d88edfdea71c051ebe4161/codex-rs/message-history/src/lib.rs)、
+[内容の分類 metadata](https://github.com/openai/codex/blob/45134c04632b971776d88edfdea71c051ebe4161/codex-rs/protocol/src/models/item_metadata.rs)、
+[履歴の投影](https://github.com/openai/codex/blob/45134c04632b971776d88edfdea71c051ebe4161/codex-rs/app-server-protocol/src/protocol/thread_history.rs)
+を参照できる（2026-09-09 確認版）。Claude の上記フィールドは同日のローカル transcript の観測例であり、両者とも全ての過去・将来の版への保証ではない。
 
 ## resume へのつなぎ方
 
