@@ -1,13 +1,15 @@
 ---
 name: 3d-printing
-description: "STL から 3D プリントまでの一気通貫ワークフロー。slicer 選定・印刷ジョブ投入・進捗監視・完了確認を支援する。LAN 上のプリンタを自動検出し、機種別の API/プロトコル差を吸収する。印刷空間にカメラがあれば、開始時のベースライン + 完了時のスナップショットを取得して結果を視覚的に検証する。過去の印刷履歴やアーカイブ済みファイルの調査目的では使わない（リアルタイム操作専用）。キーワード: 3D プリント, FDM, 印刷, スライス, Creality, K1 Max, OrcaSlicer, PrusaSlicer, gcode, STL, mjpg-streamer"
+description: "STL のスライス、FDM プリンタの検出、印刷投入、進捗確認、停止、カメラ確認を行う。Creality K1 Max 等の機種別プロトコルと OrcaSlicer の設定を参照し、依頼された工程を進める。利用可能な機種専用スキルがあれば優先する。CAD モデリング、過去の印刷履歴やアーカイブ調査には使わない。"
 ---
 
 # 3D Printing Skill
 
 STL → スライス → アップロード → 印刷開始 → 監視 → 完了確認 までの一連を支援する。LAN プリンタの検出・機種別プロトコル吸収・カメラ起点の視覚検証も含む。
 
-**Freedom Level: 中** — 大筋（スライス → 投入 → 監視 → 検証）は固定。slicer 選定・サポート設定・camera 取り扱いは状況依存。物理リソース（フィラメント・時間）を消費する操作なので、**印刷開始の最終 Go は必ずユーザ承認を取る**。
+依頼された工程だけを実施する。スライスだけの依頼にプリンタ接続や印刷許可は不要。
+印刷開始は、対象プリンタ・成果物・設定について得たユーザーの明示許可の範囲で行う。既にその投入を許可されていれば聞き直さず、対象や設定が変わり許可の範囲が変わる場合だけ確認する。
+利用可能な機種専用スキル・検証済み手順が対象機種と作業に合う場合は優先する。例えば Bambu Lab H2D Pro には `printing-with-bambu-h2d-pro` が利用できる場合がある。別機種の API や状態値を流用しない。
 
 ---
 
@@ -26,20 +28,19 @@ STL → スライス → アップロード → 印刷開始 → 監視 → 完�
 
 ---
 
-## 前提
+## 工程ごとの前提
 
-- `~/ghq/<host>/<owner>/<repo>` 配下に印刷したい STL がある（自分の repo 推奨）
-- macOS の場合: OrcaSlicer 2.3+ が `/Applications/OrcaSlicer.app` に。`brew install --cask orcaslicer` で導入
-- プリンタが同 LAN にある (`ifconfig` で同セグメント / `ping` 通る)
-- `uv` で Python スクリプトを走らせる前提
+- スライス: 入力 STL/3MF と出力先、対象機種・ノズル・材料・必要な造形条件、対応する既存 slicer/profile。入力は任意の許可された場所でよく、LAN 到達性は不要。
+- 投入・制御: 対象プリンタの識別と現在の状態、許可された接続経路、機種・firmware に合う操作方法。
+- カメラ確認: 対象機器のカメラと取得権限、画像の保存先。未接続のカメラを直すために印刷中の機器を再起動しない。
 
-不足してたら `mise use -g`, `brew install`, `ghq get` 等の導入手順を提示してからユーザ承認 → 実行する。
+必要な能力がない工程だけを未実施として分け、既存ツールで進められる準備は進める。インストールやネットワーク設定変更を一律の開始条件にせず、必要になった場合に固定版・供給元を確認して通常の導入方針に従う。
 
 ---
 
 ## Step 1: 操作の分類
 
-意図で 1 つ選ぶ。曖昧なら `AskUserQuestion` で確認。
+依頼の意図と会話で対象・工程を選ぶ。成果や操作対象を変える不明点だけ確認する。
 
 | 意図 | 操作 | 発話例 |
 |---|---|---|
@@ -74,18 +75,18 @@ mDNS で機種固有のサービス名を探す。Creality 系なら `_Creality-
 ( dns-sd -G v4 K1Max-XXXX.local & PID=$!; sleep 2; kill $PID ) 2>&1
 ```
 
-検出後、`references/printers.md` の対応モデルを参照して、機種固有の `/info` エンドポイントで確証を取る。**機種が未登録だったら `references/printers.md` に追記**する。
+検出は候補の発見であり、接続先の確定ではない。`references/printers.md` の対応モデルを参照し、その機種が提供する識別情報で機種・firmware・個体を照合する。`/info` は Creality K1 Max の例であり、他機種に存在すると仮定しない。未登録機種は公式資料や検証済み手順で必要な操作を確認する。
 
 **mDNS で見つからない場合のフォールバック**: 同一 LAN 上に見えていても mDNS が届かない環境がある（実際に発生した）。以下の順で切り分ける。
 
-1. 過去に同じプリンタへ接続した記録（同一/別リポジトリのコード・設定・commit メッセージ）に IP アドレスが埋め込まれていないか `grep` する
-2. 見つかった IP に直接 `curl http://<IP>/info` などで疎通確認する
-3. それでも届かない場合、Tailscale 等の VPN 経由で別ホスト（プリンタと同一 LAN にいる別マシン）に SSH で入り、そちらを踏み台に到達する
+1. 対象プリンタの既知の運用記録・設定から候補の接続先を確認する。秘密を含む設定全文や無関係な履歴を検索・出力しない
+2. 許可された候補に機種固有の読み取り操作を行い、現在の機器を照合する。古い IP アドレスだけで対象と断定しない
+3. 直接届かない場合は、既に許可された VPN・踏み台等の接続経路を使う。接続のために権限や公開範囲を広げない
 4. 到達できた IP・内部ホスト名・踏み台構成は、アクセス範囲を確認した private skill または非公開の対象プロジェクトの運用記録に残す。公開スキルの `references/printers.md` には機種・プロトコル・匿名化した接続例だけを追記する。永続メモリへの記録は、ユーザーが明示的に依頼した場合に限る
 
 ### `slice` — STL → gcode
 
-OrcaSlicer CLI を使う。プリセットは機種 + nozzle 径 + 層厚 + フィラメント の組合せ。
+対象機種に対応する既存 slicer と profile を使う。以下は OrcaSlicer CLI の例。プリセットは機種 + nozzle 径 + 層厚 + フィラメントの組合せで確認する。入力原本と出力先を識別し、原本や既存の gcode を意図せず上書きしない。
 
 ```bash
 ORCA=/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer
@@ -104,7 +105,8 @@ PROF=/Applications/OrcaSlicer.app/Contents/Resources/profiles
 - スライス後は `head -120 gcode/plate_1.gcode` でメタデータ確認:
   - `total layer number` / `max_z_height` / `filament used` / `estimated printing time`
   - `;TYPE:Support` の出現数で supports 検知
-- サポート要否は overhang 角度で決まる (`detect_overhang_wall`, `support_threshold_angle`)。Bridge で済む 5mm 以下の overhang は不要だが、それ以上は支持材推奨
+- サポート要否は形状・向き・材料・機種/profile の対応範囲と toolpath で確認する (`detect_overhang_wall`, `support_threshold_angle`)。一律の bridge 長で不要と断定しない
+- 元モデルの形状を、印刷識別のためだけに変えない。刻印や別タグが必要なら依頼された設計変更として扱う
 
 ### `print` — gcode を投入 + 開始
 
@@ -120,29 +122,30 @@ curl -F "file=@gcode/plate_1.gcode;filename=my-print.gcode" http://<IP>/upload
 
 対象リポジトリ側（このスキル自体には同梱しない）に、機種別の upload/start をまとめたラッパースクリプト（例: `tools/print_k1.py`）を置く運用が現実的。
 
-**印刷投入前に必ず実施**:
+**印刷投入前に確認すること**:
 
-1. `slice` の出力ログをユーザに提示（時間・物量・supports 件数・bbox）
-2. **CAD-as-code 由来 (forgecad / build123d / cadquery 等) なら、印刷物本体にモデル名 + バージョンを凹彫りで入れる**。例: `PARTS-TRAY V2`。底面・裏面・邪魔にならない床面など、機能を損ねず印刷後に読める場所を選ぶ。ForgeCAD なら `text2d(...).onFace(...).extrude(...)` を `subtract` / `cutout` で浅く彫る。既製 STL で編集困難な場合だけ、別途タグ/ラベル形状を同時印刷する。
-3. **CAD-as-code 由来 (forgecad / build123d / cadquery 等) なら設計を 3〜4 アングルで render してユーザに提示**。 top / iso / side を最低限、 隠れた特徴 (穴 / 内部ポケット / 段差) があれば section view か裏側 view も。 数値検証 (bbox / volume / assert) と render 目視は **直交する failure mode** を捕えるので両方必要 — bbox が正しくても CSG boolean の順序ミスで穴が塞がってる、 みたいなのは render を見ないと気付かない
-4. ベッド状態確認 (前のプリントが残ってないか) — カメラがあれば snapshot で確認
-5. ユーザに **「投入していい？」と明示確認**を取る (物理リソース消費)
-6. 確認取れたら `submit`
+1. 現在の接続先が許可されたプリンタ個体・機種であり、別ジョブが動いていないこと。
+2. 入力モデルと生成 gcode の対応、対象機種・ノズル・材料・ベッド寸法・配置・温度設定の一致。必要な support、穴、可動部等は toolpath/preview で確認する。CAD render が必要なら、判断したい特徴が見える視点を選ぶ。固定の枚数や無関係な刻印を要求しない。
+3. ベッドが空で、必要な材料・ノズルが使用可能であること。現在のカメラ画像または対象を明示した現地確認で確かめる。古い写真や gcode サムネイルを現在のベッド確認にしない。
+4. 時間・材料量等の見積もりと設定を示し、今回の投入が取得済みの許可に含まれること。足りない許可だけを確認する。
+5. アップロードしたファイルが意図した gcode に対応することを、機種の利用可能な照合方法で確認してから開始する。開始後は対象ファイル・ジョブと稼働状態を照合する。
 
-> 例外: 既製 STL (CAD コードなし) は 2 をスキップ。 同じ CAD で preset 比較だけなら初回 render で OK。
+開始要求がタイムアウトした場合は、同じジョブが始まっていないか先に状態を照合する。不明なまま start を再送しない。
 
 ### `status` — 進捗確認
 
 機種別。Creality 系は `:9999` WS で `{"method":"get","params":{"reqPrinter":1}}` → `state / printProgress / printJobTime / printLeftTime / nozzleTemp / bedTemp0` 等。
 
-判定:
-- `state = 1, printProgress = 100, printJobTime > 0` → 完了
-- `state = 0` または `deviceState = 0` → idle
-- `err.errcode != 0` → エラー（コード詳細は機種依存）
+判定は対象機種・firmware の状態定義を使い、対象ファイル/ジョブと関連付ける。Creality K1 Max の既存記録は `references/printers.md` にある。
+`printProgress=100`、idle、経過時間のいずれか一つだけでは完了と断定しない。中止・異常・完了を区別し、定義や取得状態が矛盾する場合は未確認として報告する。
+
+### `pause` / `stop` / `resume` — ジョブ制御
+
+対象プリンタと現在のジョブを識別して、明示された操作を行い、操作後の状態を照合する。「止めて」と中止を指示された場合に、勝手に pause へ置き換えない。resume は再開の許可と機器状態を確認して行う。
 
 ### `verify` — カメラスナップショット取得
 
-**印刷空間にカメラがある場合は、開始時と完了時の 2 枚を最低必ず取る**。
+今回開始する印刷では、利用可能なカメラで開始直前のベッドと完了後の見える状態を確認する。既存ジョブの確認や写真取得だけの依頼なら、現在の画像を取得し、過去の baseline がないことを明記する。画像を保存しただけでなく内容を見て、対象・時点・画角の限界を示す。
 
 ```bash
 # Creality K1 系: mjpg-streamer
@@ -155,70 +158,30 @@ curl -o "$ARTIFACT_DIR/complete.jpg" http://<IP>:8080/?action=snapshot   # 完�
 
 ### `submit` — 一気通貫
 
-`slice` → ユーザ確認 → `print` → `status` polling → 完了で `verify` を自動的に流す。各段でユーザ介入ポイントを残す。
+`slice` → 投入前確認 → `print` → 対象ジョブの監視 → `verify` を依頼された範囲で進める。既に成立した工程や許可をやり直さない。
+監視間隔は機種の仕様・既存運用・印刷段階に合わせる。監視を終える時点で未完了なら、進捗と残る確認を明示し、完了扱いにしない。
 
-擬似フロー:
+## 完了と記録
 
-```
-1. slice            (出力: layer数/時間/物量)
-2. engraving check  (CAD-as-code のみ — モデル名 + バージョンの凹彫りを確認)
-3. design render    (CAD-as-code のみ — top/iso/side + 必要なら section)
-4. pre-flight       (supports 件数、レイアウト、bridge 件数)
-5. baseline 撮影    (カメラあれば — ベッドが空かの目視確認用)
-6. ユーザ確認       「render + 物量 6cm³ / 15 分 / supports 32 件。印刷投入してよし？」
-7. upload + start
-8. status polling   (60-90 秒間隔)
-9. 完了検知
-10. complete 撮影    (カメラあれば)
-11. baseline vs complete を並べてユーザに提示
-```
+依頼された工程の成果物、対象、設定、実行結果、未確認を対応付けて報告する。
+スライス成功、機器が報告するジョブ完了、カメラで見える造形状態、寸法・強度・嵌合等の物理試験を分ける。メタデータや写真から物理試験済みと書かない。
 
----
-
-## Step 3: 完了後の記録
-
-印刷物の物理確認は人間しかできない。Claude 側でできるのは:
-
-- 今回の印刷の目的に直接紐づく成果物（gcode / STL / レンダ / baseline.jpg / complete.jpg）を repo に commit する。**「一律すべて commit」ではなく、目的に紐づくものだけを選ぶ**（例: セキュリティ調査など別タスクのついでに撮った写真を、無関係な commit に混入させない）
-- 物量・時間・supports 件数を WorkItem (GitLab/Notion) に note 投稿
-- ユーザに「物理確認お願い」の依頼を明示
-
-完了確認の note 例 (physai-tasks 経由で GitLab に投稿する場合):
-
-```
-### 印刷完了 (2026-05-18 20:03)
-
-- 投入: pi-pico-case-v6-20260518-1948.gcode (520 KB)
-- 結果: state=2, printJobTime=15m32s (見積もり 14m42s から +0.8 分)
-- baseline / complete スナップショットを添付
-- 物理確認: <ユーザによる>
-
-[baseline]  ← <upload from camera/baseline.jpg>
-[complete]  ← <upload from camera/complete.jpg>
-```
-
----
+STL/gcode/preview/画像は、目的に必要なものを許可されたローカル保存先へ残す。commit は対象 repo の方針と依頼範囲に従い、成果物すべてを一律に追加しない。
+WorkItem の note・添付、Slack 等への投稿は外部送信に当たる。宛先・本文・画像を下書きし、セッションで得た明示許可の範囲でのみ送信する。写真の背景や接続情報を無関係な公開成果物へ混入させない。
 
 ## 安全ルール
 
-- **印刷ジョブの開始** = 物理リソース消費 + ロールバック不能 → **必ずユーザ承認後**
-- CAD-as-code 由来の印刷物は、モデル名 + バージョンを読める凹彫りで本体に入れてからスライスする。
-- **stop** は最終手段。pause で済むなら pause（resume できる）
-- スライサ override profile を OrcaSlicer の bundle 上に直接書かない。**対象リポジトリ側（例: `tools/print-profiles/`）に置く**
-- カメラスナップショットを Slack/GitLab 等の外部に流すとき: プライバシー範囲を意識する (背景に映る作業環境)
-
----
+- 印刷開始・再開・機器設定変更は、対象と現在の許可範囲を確認して行う。
+- スライサ override profile は bundle を書き換えず、対象プロジェクト等の別ファイルへ置く。
+- stock firmware の利用可能な API を優先し、接続確認やカメラ取得のために root 化・再起動・別ジョブ中断をしない。
+- 画像だけを根拠とする自動停止や失敗判定システムの導入は別タスクとして扱う。
 
 ## Anti-patterns
 
-- スライスせずに `.stl` を直接プリンタへ流そうとする → プリンタは gcode しか食わない
-- プリセットを毎回手打ち → 対象リポジトリ側に preset wrapper（例: `tools/slice.py`）を置く
-- `enable_support=1` を CLI flag で渡そうとする → OrcaSlicer は flag を持たない、profile JSON で渡す
-- 自動 stop ロジックを単一フレーム判定で組む → false positive が高すぎる。N 連続検知 + 進捗段階別閾値が現実解 (`docs/print-monitoring-llm-as-judge.md` 参照例)
-- 印刷投入時にカメラを叩かない → 完了時に bed が空かどうか後から検証できなくなる
-- プリンタを ROOT/Helper Script 改造ありき → stock firmware で叩ける API があるなら、保証維持のためそちらを優先
-
----
+- 対応していない `.stl` を印刷用 gcode として送る → 機種が受け付ける形式と変換工程を確認する。
+- `enable_support=1` を OrcaSlicer の CLI flag と仮定する → 対応する profile JSON と使用版の CLI を確認する。
+- 応答なしを失敗と決めて start を再送する → 対象ジョブの現在状態を照合する。
+- カメラがない/見えないことを理由に、ベッド確認を省いて投入する → 必要な現地確認だけ依頼する。
 
 ## References
 
@@ -230,11 +193,9 @@ curl -o "$ARTIFACT_DIR/complete.jpg" http://<IP>:8080/?action=snapshot   # 完�
 
 ## Checklist (印刷投入時)
 
-- [ ] STL が動作確認済み（CAD ツール側で衝突・寸法検証済み）
-- [ ] CAD-as-code 由来なら、印刷物にモデル名 + バージョンの凹彫りが入っている
-- [ ] スライス結果のメタデータ (time/material/supports) をユーザに提示した
-- [ ] **ユーザ承認**を取った（物理リソース消費の明示）
-- [ ] カメラがあれば baseline.jpg を取った
-- [ ] 投入後、status polling で開始確認した
-- [ ] 完了検知後、complete.jpg を取った
-- [ ] gcode / STL / レンダ / スナップショット を repo に commit した
+- [ ] 入力モデル・出力 gcode・投入先プリンタの対応が確認できている
+- [ ] 機種・ノズル・材料・ベッド・配置・toolpath が今回の設定と合っている
+- [ ] 現在のベッドと別ジョブの有無を確認した
+- [ ] 今回の投入がユーザーの明示許可に含まれる
+- [ ] 投入後、対象ファイル/ジョブの開始を確認した
+- [ ] 完了・中止・異常・未確認を区別し、画像確認と物理試験の範囲を分けて報告した

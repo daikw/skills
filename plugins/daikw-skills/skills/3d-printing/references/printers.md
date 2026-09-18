@@ -56,7 +56,7 @@
 
 State push の主要 key:
 
-- `state` / `deviceState` — 0=idle, 1=printing/probing, 2=completed, 9=preparing
+- `state` / `deviceState` — 既存記録では 0=idle, 1=printing/probing, 2=completed, 9=preparing。対象 firmware の定義を照合し、対象ファイル/ジョブの状態として判定する
 - `printProgress` (0-100), `printJobTime` (秒), `printLeftTime` (秒)
 - `printFileName` (絶対パス)
 - `nozzleTemp` / `targetNozzleTemp`, `bedTemp0` / `targetBedTemp0`
@@ -71,7 +71,7 @@ State push の主要 key:
 | `http://<ip>:8080/?action=stream` | MJPEG (multipart/x-mixed-replace, 1280×720, ~9 Mbps) |
 | `http://<ip>:8080/?action=snapshot` | JPEG 単発 (~10-15 KB / 1280×720) |
 
-**重要なクセ**: stock firmware は **電源 ON 直後 mjpg-streamer が立ち上がらないことがある**。`:8080` が接続拒否なら **プリンタ再起動** で復活する。常時起動したいなら Helper Script (root mod) を入れる。
+**既存の観測**: stock firmware で電源 ON 直後に mjpg-streamer が利用できず、再起動後に取得できた記録がある。接続拒否だけでは原因や復旧を断定できない。カメラ確認を理由に再起動・root 化を行わず、現在のジョブと許可範囲を保つ。[camera-verification.md](camera-verification.md) の取得不能時の扱いに従う。
 
 ### スペック
 
@@ -102,7 +102,7 @@ State push の主要 key:
 ### Known quirks
 
 - スライサに渡す process profile は **override 連結 (`;`) 不可** → bundle profile をフルコピーしてから書き換える
-- 印刷終了後の error code 210/506 は **正常終了からの自動 filament 監視 trip** で実害なし
+- 印刷終了後の error code 210/506 には filament 監視に関する既存記録があるが、コードだけで無害や正常終了と判定しない。対象 firmware の定義と今回のジョブ状態を照合する
 - `aiSw=1` にしても LAN ストリーム自体は活性化しない（mjpg-streamer 起動とは独立）
 - `printJobTime` は probing/heating 時間を含む、`printLeftTime` は残り推定値
 
