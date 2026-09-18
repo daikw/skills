@@ -1,8 +1,8 @@
 ---
 name: deodorize-ai
-description: "AI 生成コンテンツの AI 臭 (slop) を検出・除去するルータ。日本語/英語の文章、コード、README・コミットメッセージ・PR・図、スライドを種別判定し、ドメイン別の反証可能なゲートで診断（audit）、希望に応じて書き換える（rewrite）。Web UI は hallmark（固定版を Web 取得）に委譲して audit する。キーワード: AI臭, slop, 校正, リライト, 脱AI, deodorize, audit。著者が AI かどうかの真贋判定・断定には使わない（報告するのは観測可能な tell のみ）。Web UI やスライドの新規生成・デザイン作業には使わない（生成は hallmark や dataviz の領分）。"
+description: "AI 生成コンテンツの AI 臭 (slop) を検出・除去するルータ。日本語/英語の文章、コード、README・コミットメッセージ・PR・図、スライドを種別判定し、ドメイン別の反証可能なゲートで診断（audit）、希望に応じて書き換える（rewrite）。過剰設計・YAGNI レビューの依頼は、差分の不要な複雑さだけを根拠付きで調べる read-only 経路へ直接進む。Web UI は hallmark（固定版を Web 取得）に委譲して audit する。キーワード: AI臭, slop, 校正, リライト, 脱AI, deodorize, audit, 過剰設計, YAGNI。著者が AI かどうかの真贋判定・断定には使わない。通常のコードレビューの代用や、Web UI・スライドの新規生成・デザイン作業には使わない。"
 user-invocable: true
-argument-hint: "[audit] <対象テキスト or ファイルパス>"
+argument-hint: "[audit | yagni] <対象テキスト・ファイルパス・差分>"
 allowed-tools:
   - Read
   - Write
@@ -20,7 +20,18 @@ AI 生成物に頻出する観測可能な兆候（tell）をドメイン別ゲ�
 
 Freedom Level: ゲート判定は**低**（ゲート文言通りに判定し、独自基準を発明しない）。書き換えは**中**（修正方針に従いつつ文体・文脈に応じて調整）。
 
-## 原則（全ルート共通・非交渉）
+## 過剰設計・YAGNI レビュー
+
+`/deodorize-ai yagni <差分>`、または「過剰設計を見て」「YAGNI レビュー」「これ作りすぎてない？」という依頼では、
+[references/overengineering-review.md](references/overengineering-review.md) へ直接進む。
+対象は既定で現在の差分。比較の基点と要件を確認し、不要と証明できる要素だけを報告する。
+この経路は read-only で、通常のコードレビューの代わりにはしない。
+以下の AI 臭ゲート、universal ゲート、severity・件数集計、確認→rewrite は適用しない。
+レビュー後の修正は別途依頼された範囲で行う。
+
+以下は AI 臭の診断・書き換えを依頼された場合に使う。
+
+## 原則（AI 臭ルート共通・非交渉）
 
 1. **断定しない。** このスキルが報告するのは「AI 生成物で頻出する観測可能な tell」であり、著者や生成手段の推定ではない。「AI が書いた」とは断定しない。単一 tell での判定もしない（複数 tell の共起で強度を示す）。
 2. **ゲートは反証可能な yes/no。** 「AI っぽいか」という曖昧判定は使わない。各ゲートの判定値は `yes`（tell 検出）/ `no` / `NA`（そのドメイン・文脈に適用不能）/ `UNKNOWN`（確認手段がない）の 4 値。UNKNOWN を pass 扱いにしない。
@@ -124,6 +135,6 @@ https://raw.githubusercontent.com/Nutlope/hallmark/13ac0ec7e148655948100b6396439
 | 状況 | 委譲先 |
 |---|---|
 | 日本語技術文書・書籍原稿の執筆規範全般（構成・論証・見出し） | `japanese-tech-writing` を先に適用。本スキルは universal + surface の検出のみ担当 |
-| code ルートで構造 tell（単一実装の抽象化・thin wrapper・投機的汎用化）が濃い | `reviewing-overengineering` に詳細レビューを委譲 |
+| code ルートで単一実装の抽象化・thin wrapper・投機的汎用化が候補に挙がった | [references/overengineering-review.md](references/overengineering-review.md) の削除判定と証拠要件で必要性を確認し、証明できたものだけを指摘する |
 | Web UI の新規生成・redesign | hallmark 本体（本スキルは audit のみ） |
 | チャート・グラフの品質 | `dataviz` の規範を参照 |

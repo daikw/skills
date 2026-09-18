@@ -44,6 +44,15 @@ claude plugin install daikw@daikw-skills
 
 After enabling, available skills appear as `daikw:<skill-name>` in Claude Code.
 
+## Skill migration
+
+`reviewing-overengineering` is now part of `deodorize-ai`. Use
+`/daikw:deodorize-ai yagni` in Claude Code, or ask `$deodorize-ai` for an
+overengineering / YAGNI review in Codex. This route performs the same read-only
+review with evidence for removing unnecessary complexity; it does not run the
+unrelated prose or visual-style checks. The review criteria live in
+`deodorize-ai/references/overengineering-review.md`.
+
 ## Layout
 
 ```
