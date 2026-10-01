@@ -5,8 +5,8 @@
 
 | 章 | 内容 |
 |---|---|
-| Executive Summary | GO / NO_GO / HOLD、判断の核心、成立条件 |
-| Problem & Customer | 顧客、痛み、代替行動、購買証拠 |
+| Executive Summary | GO / NO_GO / HOLD、判断の要点、成立条件 |
+| Problem & Customer | 顧客、課題、代替行動、購買を示す証拠 |
 | Market | 市場の定義、対象範囲、規模の計算、成長・購買・規制 |
 | Competition & Moat | 競合、代替、差別化とその持続条件 |
 | Product & Distribution | 製品、導入障壁、販売・流通・運用 |

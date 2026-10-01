@@ -10,13 +10,13 @@
 - ユーザー固有の表記や組織固有の運用なら、一般化せずその規則を明記する。
 - 入力次第で方法を変える必要があるなら、既定の方針と切替条件を示す。
 - 対象や順序を間違えると後から直せないなら、識別・承認・操作・照合を具体化する。
-- API 固有の ID、shell-safe な引数輸送、タイムアウト後の重複判定など、推測しにくい知識は残す。
+- API 固有の ID、シェルで安全に引数を渡す方法、タイムアウト後の重複判定など、推測しにくい知識は残す。
 - 決定的な処理は既存スクリプトに任せる。スクリプト化のために新規の抽象化や依存を増やさない。
 
 未確認を末尾に列挙するだけでは、誤った手順を防げない。未確認の仕様を前提にした分岐が本文に残っていないか照合する。
 例えば `idempotency-key` という名前だけから再送保証を推測しない。保証のない契約では、成功が確認できれば完了とし、未完了・不明なら状態を保持して再送条件を確認する。文書化された保証がある契約では、その保証に従ってよい。
 
-具体的であることと、確認済みであることは別である。文書化されていない応答の字段や再試行保証を足して「厳密な手順」にしない。未確定の仕様は確認事項として残す。
+具体的であることと、確認済みであることは別である。文書化されていない応答のフィールドや再試行保証を足して「厳密な手順」にしない。未確定の仕様は確認事項として残す。
 
 観測しやすい出力では方法を任せやすい。見えにくい副作用では、何を観測して安全を確かめるかまで書く。
 高リスクな操作を含むスキルでも、調査・下書き・準備には別の裁量範囲を設定できる。
@@ -69,5 +69,5 @@ Claude の動的コンテキスト注入や allowed-tools、Codex の agents/ope
 
 - [OpenAI: GPT-6 Astra prompting](https://developers.openai.com/api/docs/guides/latest-model#prompting-best-practices): 指示の感度、確認・継続、検証量。latest URL の対象モデルは利用時に確認する。
 - [Eric Provencher: Rethinking skills and prompts for GPT-6 Astra](https://x.com/pvncher/status/2095991462416490862): 過剰なレシピ、段階的な参照、複数モデルでの指示の扱い。
-- [Anthropic: Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices): 操作の壊れやすさと可変性に応じた具体性、対象モデルでの検証、形式。
+- [Anthropic: Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices): 操作を誤った場合の影響と、方法を変えられる範囲に応じた具体性、対象モデルでの検証、形式。
 - [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills): Codex のスキル作成・配布。

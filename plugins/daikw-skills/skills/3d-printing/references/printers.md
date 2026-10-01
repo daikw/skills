@@ -1,6 +1,6 @@
 # Printer reference
 
-機種別のプロトコル・API・スペックの集約。新しい機種を LAN に追加したら、ここに 1 セクション足すのだ。
+機種別のプロトコル・API・スペックをまとめる。新しい機種を LAN に追加したら、その機種のセクションを 1 つ追加する。
 
 ## 共通フィールド (各機種の最低限)
 
@@ -103,7 +103,7 @@ State push の主要 key:
 
 - スライサに渡す process profile は **override 連結 (`;`) 不可** → bundle profile をフルコピーしてから書き換える
 - 印刷終了後の error code 210/506 には filament 監視に関する既存記録があるが、コードだけで無害や正常終了と判定しない。対象 firmware の定義と今回のジョブ状態を照合する
-- `aiSw=1` にしても LAN ストリーム自体は活性化しない（mjpg-streamer 起動とは独立）
+- `aiSw=1` にしても LAN ストリーム自体は有効にならない（mjpg-streamer 起動とは独立）
 - `printJobTime` は probing/heating 時間を含む、`printLeftTime` は残り推定値
 
 ---

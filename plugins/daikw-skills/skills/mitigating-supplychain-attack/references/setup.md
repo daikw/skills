@@ -180,7 +180,7 @@ corepack enable
 
 ### フックが Python 3.11 未満で動かない
 
-`tomllib` は Python 3.11 で標準ライブラリに追加された。3.10 以下では `pyproject.toml` の解析が常に「変更あり」として扱われる（安全側に倒れる）。
+`tomllib` は Python 3.11 で標準ライブラリに追加された。3.10 以下で `pyproject.toml` を解析すると、安全のため常に「変更あり」と判定される。
 
 ### PostToolUse で lockfile 未更新の警告が出る
 

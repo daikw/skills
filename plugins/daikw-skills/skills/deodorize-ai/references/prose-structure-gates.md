@@ -1,6 +1,6 @@
 # Prose structure gates — 散文の構造 tell（S 系・日英共通）
 
-ja-prose / english-prose 両ルートで適用する structural 層のゲート。文書全体の骨格に出る tell で、表層（語彙）を潰しても残る。日本語対応形を併記する。
+ja-prose / english-prose 両ルートで適用する structural 層のゲート。文書全体の構成に出る tell で、語彙だけを直しても残る。日本語対応形を併記する。
 
 ### S-1 アウトライン的結論 — major
 
@@ -26,7 +26,7 @@ ja-prose / english-prose 両ルートで適用する structural 層のゲート�
   - `It's not about X, it's about Y` / `It's not just X. It's Y` / `Not because X. But because Y` / `No X. No Y. Just Z`
   - 日本語形: 「〜ではありません。〜なのです」「単なる〜ではなく、〜である」
 - なぜ: 対比構文は「洞察がある」ように読ませる汎用テンプレートで、実質的な主張なしで成立する。
-- 修正: 肯定文 1 文に潰す（「Y である」だけ書く）。
+- 修正: 肯定文 1 文にまとめる（「Y である」だけ書く）。
 
 ### S-5 コピュラ回避 — major
 

@@ -1,4 +1,4 @@
-# QCAD CLI と地雷集
+# QCAD CLI と既知の注意点
 
 QCAD 3.32.9 Community (macOS) で実機検証済み。
 
@@ -19,7 +19,7 @@ QCAD 3.32.9 Community (macOS) で実機検証済み。
 | `-allow-multiple-instances` | GUI 版 QCAD が起動中でも並走可能 |
 | `-autostart <path>` | 指定した JS スクリプトを実行 |
 
-## 地雷
+## 注意点
 
 ### 1. JS 例外でも exit 0
 

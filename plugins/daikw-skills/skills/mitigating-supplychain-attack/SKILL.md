@@ -102,7 +102,7 @@ Verdict: PASS / FAIL
 
 1. **ルールファイル**: [assets/supply-chain-security.md](assets/supply-chain-security.md) を読み、`~/.claude/rules/supply-chain-security.md` に書き込む
 2. **フックスクリプト**: [assets/supply_chain_guard.py](assets/supply_chain_guard.py) を読み、`~/.claude/hooks/supply_chain_guard.py` に書き込み、`chmod +x` する
-3. **settings.json**: `~/.claude/settings.json` を読み、`hooks` セクションに以下を追加する（既存エントリは壊さない）:
+3. **settings.json**: `~/.claude/settings.json` を読み、`hooks` セクションに以下を追加する（既存エントリは保全する）:
    - `PreToolUse` → `Bash` matcher の hooks 配列に `python3 "$HOME/.claude/hooks/supply_chain_guard.py"` を追加
    - `PostToolUse` → `Edit|Write|MultiEdit` matcher で同スクリプトを登録
 4. **動作確認**: 以下を実行して deny/pass を確認する:

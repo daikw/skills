@@ -154,4 +154,4 @@ QCAD_RESULT:{"success":true,"output":"/path/to/output.dxf","entities":3,"layers"
 - SPLINE は fit point ではなく control point を使う（fit point は DXF 書き出し時にエラーになる）
 - `addObject` の第2引数は `false` にする（`true` だとレイヤー等の属性がデフォルトに上書きされる）
 - `-platform offscreen` は macOS では使えない。`-no-gui -no-dock-icon -allow-multiple-instances` で headless 実行する
-- 詳細な API リファレンスと地雷集は `references/` を参照
+- 詳細な API リファレンスと既知の注意点は `references/` を参照

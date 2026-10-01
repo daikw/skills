@@ -22,10 +22,10 @@ X (Twitter) 上の実践報告から収集した、サポート界面（interfac
 - **interface のみ異種材にする**: サポート本体は本体と同じ材、interface 層（2-3 層）だけ
   異種材を割り当てる。高価な水溶材・専用材の消費を 1 桁減らせる。Bambu Studio は
   サポート設定で interface filament を独立に指定できる
-- **密着設定に振る**: 異種材界面なら接着しないので、通常サポートのような隙間が不要。
+- **隙間をなくして密着させる**: 異種材界面なら接着しないので、通常サポートのような隙間が不要。
   実測ベストとの報告（@ddesign, 2025-07）: `Top Z distance = 0mm`、
   `Top interface spacing = 0mm`、`Interface pattern = Rectilinear interlaced`。
-  隙間ゼロにすることで被サポート面の面品質がむしろ向上する
+  隙間ゼロにすることでサポートに接する面の品質が向上する
 - **マルチパーツへの材料割り当て**: OBJ 等でインポートしてパーツごとに
   filament 1 = PLA / filament 2 = PETG を割り当てれば、嵌合パーツの「くっつかない」
   組み立て（interlocked print-in-place）にも同じ原理を流用できる（@adnarimnavi の
@@ -43,7 +43,7 @@ X (Twitter) 上の実践報告から収集した、サポート界面（interfac
 
 - **PLA マット系は非推奨**: Bambu wiki の PETG×PLA 剥離手法は PLA Basic のみ推奨。
   マット系はフィラー由来で挙動が変わる（@yakumoreo89300 の指摘）
-- **PVA は保管が全て**: 吸湿で印刷不能レベルまで劣化する。乾燥剤 + 密閉、印刷前乾燥
+- **PVA は乾燥状態を保つ**: 吸湿で印刷不能レベルまで劣化する。乾燥剤 + 密閉、印刷前乾燥
 - **HIPS 溶解は ABS を侵す**: 溶解前提の HIPS 運用は事実上 breakaway 専用と考える
 - **サポート材と気付かず本体印刷**: サポート用 PLA を通常 PLA と取り違えると層間剥離する
   （AMS 在庫のラベリングを厳格に）

@@ -1,12 +1,12 @@
 # 読込経路の確認
 
-以下は候補の位置。指定されたハーネスの欄だけ参照し、実際の loader・現在のツールから正本を確かめる。
+以下は候補の位置。指定されたハーネスの欄だけ参照し、実際の loader・現在のツールから編集元を確かめる。
 各 root を列挙したことは、全内容の読み込み許可ではない。
 
 ## Codex
 
 - グローバル指示と、cwd に適用される AGENTS.md / override / fallback 文書。
-- user/repo の skill root と、設定された plugin marketplace が指す正本・installed path。
+- user/repo の skill root と、設定された plugin marketplace が指す編集元・installed path。
 - `config.toml` はまず存在・メタデータを確認し、必要な model/profile/skills/plugin/hook/permission 項目だけを抽出する。
 - plugin cache と source checkout を区別する。使える plugin CLI の list/詳細で有効な配布先を確かめる。
 - memory はそのセッションで指定された index と更新口を起点に、現在の問いに関係する entry を辿る。

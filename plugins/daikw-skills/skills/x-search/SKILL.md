@@ -5,12 +5,12 @@ description: "X (Twitter) の投稿を、キーワード・期間・投稿者か
 
 # /x-search - X (Twitter) ローカル検索
 
-`x-search` CLI で xAI Live Search を叩く。KB ingestion / 調査タスク補助用。
+`x-search` CLI で xAI Live Search を呼び出す。KB への情報収集や調査を補助する。
 MCP は提供しない (tool list 肥大化を避ける progressive disclosure 設計)。
 
 ## 利用する CLI
 
-現在インストール済みの `x-search` を使う。CLI の実装と認証情報の解決は CLI 側に閉じ、秘密値を表示しない。
+現在インストール済みの `x-search` を使う。実装と認証情報の取得は CLI に任せ、秘密値を表示しない。
 モデルが指定されている場合は、その設定と結果の確認可能なモデル情報を照合する。別モデルへの変更を推定しない。
 
 CLI が見つからない場合は導入不足として報告する。同梱の PEP 723 script は依存の範囲指定を含むため、単にコピーして実行しない。

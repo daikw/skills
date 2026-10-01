@@ -3,7 +3,7 @@
 配置は公開性、ハーネス中立性、機微性で決める。依頼と既存構成から決まることはそのまま採用する。
 公開範囲や運用が変わり、既存指示では判断できない場合は、作業可能な部分を進めつつ確認する。
 
-| 系統 | 正本と配布 |
+| 系統 | 編集元と配布 |
 |---|---|
 | Public | この repo の `plugins/daikw-skills/skills/<name>/`。機微情報なし。manifest が指す各ハーネスの plugin として配布 |
 | Private | chezmoi の `dot_agents/skills/<name>/` と `dot_claude/skills/<name>/`。生成先はそれぞれ `~/.agents/skills/` と `~/.claude/skills/` |
@@ -16,7 +16,7 @@ Private の両コピーには必要な同梱資料も配布し、Codex の `agen
 公開 skill の内容を chezmoi へコピーせず、chezmoi は bootstrap と私有内容を所有する。
 
 変更前に manifest、installed path、remote URL、archive 状態、直近 commit から active source を確認する。
-cache・生成物・古い checkout は正本にしない。distribution 更新は実際の plugin/chezmoi の更新経路で行う。
+cache・生成物・古い checkout を編集元として使わない。distribution 更新は実際の plugin/chezmoi の更新経路で行う。
 配布後に名前が見えること、適切な依頼で選択されること、参照と実行が成功することを別々に確認する。
 
 ## リネーム・移行・削除
@@ -32,7 +32,7 @@ cache・生成物・古い checkout は正本にしない。distribution 更新�
 
 公開 source に実機IP・内部hostname・個人情報・組織固有ID・秘密を含めない。例は匿名化し、実値は private/repo-local へ置く。
 script の呼出しは loader が示した skill root または現在読んだ SKILL.md の親を基準に解決する。
-plugin の固定cache版や特定ハーネスの user-level パスを正本扱いしない。
+plugin の固定cache版や特定ハーネスの user-level パスを編集元として扱わない。
 
 対象だけを適用し、無関係な destination drift を保全する。既存の invocation policy と permission は本文編集で暗黙に変更しない。
 source の commit と、各ハーネスの再読込・新規セッション検証を区別して報告する。

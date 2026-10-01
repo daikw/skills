@@ -10,14 +10,14 @@
 
 - [ ] 編集対象が dotfile manager の管理下か確認 (`chezmoi managed <path>` 等)
 - [ ] 編集後、source/destination の乖離を確認 (`chezmoi status` 等)
-- [ ] 通常ファイルは source 側に逆流 (`chezmoi re-add <path>` 等)
+- [ ] 通常ファイルの変更は source 側へ反映 (`chezmoi re-add <path>` 等)
 - [ ] templated (`.tmpl`) ファイルは source 側を直接編集
 - [ ] 解消後、source の git repo で commit（push は別途承認）
 
 ## templated ファイルの注意 (chezmoi 固有)
 
 `.tmpl` 拡張子は host-specific gating (`{{ if eq .chezmoi.hostname ... }}`) や
-変数展開を含む。`chezmoi re-add` は templating を壊すので、必ず source の `.tmpl`
+変数展開を含む。`chezmoi re-add` ではテンプレート構文が失われるため、必ず source の `.tmpl`
 を直接編集する。`chezmoi execute-template < <(...)` で動作確認できる。
 
 他の dotfile manager（stow, yadm, dotbot 等）を使っている場合は、それぞれの
