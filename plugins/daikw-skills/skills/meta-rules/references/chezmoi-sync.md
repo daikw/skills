@@ -12,7 +12,7 @@
 - [ ] 編集後、source/destination の乖離を確認 (`chezmoi status` 等)
 - [ ] 通常ファイルは source 側に逆流 (`chezmoi re-add <path>` 等)
 - [ ] templated (`.tmpl`) ファイルは source 側を直接編集
-- [ ] 解消後、source の git repo で commit（push は別途承認）
+- [ ] 解消後、source の git repo で commit
 
 ## templated ファイルの注意 (chezmoi 固有)
 
