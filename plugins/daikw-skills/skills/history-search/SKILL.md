@@ -1,11 +1,51 @@
 ---
 name: history-search
-description: "Claude Code と Codex CLI 両方の会話履歴を全プロジェクト横断で検索する。過去のトピックをどちらのハーネスで話したか思い出せないとき、resume したいがディレクトリやセッションを忘れたときに使う。Claude Code / Codex CLI のどちらから起動しても、両方の履歴を検索対象にできる。単純なキーワード検索以外の分析的クエリ（エラー率集計・繰り返し検出等）は references/recipes.md を使う。ディレクトリ名から実パスを逆算するだけの用途なら対象外（後述の落とし穴があるので、まず ls で確認する）。キーワード: 履歴検索, history, resume, 過去の会話, codex 履歴, セッション検索"
+description: "通常の Codex、Claude Code、Discord 経由の Codex 会話履歴を横断検索する。過去の話題、作業場所、セッション、元の Discord スレッドを探すときに使う。履歴の集計や著者判定では収録範囲と来歴を照合する。履歴の移動や Discord 投稿は対象外。"
 ---
 
-# history-search - Claude Code / Codex CLI 履歴横断検索
+# 会話履歴の横断検索
 
-Claude Code と Codex CLI、両方の会話履歴を横断して検索するスキル。検索は素の `grep` / `find` なので、どちらのハーネスから起動しても同じ手順で両方の履歴を検索できる（起動元 × 検索先の 4 通りすべて同一手順）。ユーザーがハーネスを指定しない限り、両方の履歴を検索する。
+通常の Codex、Claude Code、Discord bridge の会話を一つの検索入口から探す。
+ユーザーが検索先を指定しなければ、アクセスできる全保存先を対象にする。
+実行環境ごとの履歴を移動、コピー、書き換えず、出典と元の作業場所を付けて結果をまとめる。
+
+## まず同梱の検索を使う
+
+今回読み込んだこの `SKILL.md` の親ディレクトリを特定し、同梱の [scripts/search.py](scripts/search.py) を既存の Python で実行する。
+`history_skill_dir` はその実在するディレクトリに置き換える。新しい依存は不要。
+
+```sh
+uv run --offline --no-project python "$history_skill_dir/scripts/search.py" -- 'キーワード'
+```
+
+検索語は正規表現ではなく、大文字小文字を区別しない部分一致。
+`--` の後に渡せば `-` で始まる語も検索できる。
+別の home を調べる場合は `--home /path/to/home` を指定する。
+現在の `CODEX_HOME` が設定されている場合は、対象 home の `--codex-home` も明示して検索範囲を揃える。
+カスタムの保存先には `--codex-home /path/to/codex-state`、`--discord-state-dir /path/to/bridge-state` を指定する。
+通常の Codex 保存先は現在の `CODEX_HOME`、未設定なら `~/.codex`。
+
+出力は JSON。`matches` は `origin`、ファイル、`session_id`、記録された `cwd` 等の metadata で、発言本文は出さない。
+Discord は読み取り専用で bridge の `threads` 表を照合し、`channel_id`、`thread_ids`、`codex_home` とホスト側 workspace を付ける。
+コンテナー内の `/workspace` は `recorded_cwd` として残す。
+対応表がない、古い、曖昧な場合は `cwd` を推測せず、`mapping_status` を示す。
+同じ session ID でも別保存先の会話を同一視せず、同じファイルの alias だけを重複除外する。
+派生する保存先が指定した base や別チャンネルの外へ symlink で抜ける場合は対象にせず、読取不能と同様に検索範囲の欠損として示す。
+FIFO など通常ファイル以外の JSONL は読み込まない。
+
+`coverage.roots` の `status` で検索済み、保存先なし、読取失敗を区別する。
+`coverage.problems` がある場合は終了コード `2` だが、取得できた結果も JSON に残る。
+不正 JSON、途中の書き込み、読取失敗を無視して「全履歴を検索済み」「該当なし」と断定しない。
+保存先がなくなる前の履歴や、別ホスト、未取得のクライアント履歴まで網羅するものではない。
+
+本文の検索対象は user / assistant の表示テキスト。
+既知の AGENTS 展開、ツール結果、analysis、Discord の役割指示や引用された別スレッドの文脈は除外する。
+未知の版の注入形式や、ユーザーによる引用、fork の継承を完全に分類する保証はない。
+ヒットした会話の特定箇所を追加で読み、来歴を確認する。集計や本人の文体の根拠には検索ヒットだけを使わない。
+
+この統合検索は保存先にアクセスできるホストで使う。
+隔離された Discord 実行環境からホストの全履歴を読めるようにする機能ではない。
+そこから参照する必要がある場合は、許可する利用者と履歴範囲を別途定める。
 
 ## 履歴の保存場所
 
@@ -40,7 +80,25 @@ ls ~/.claude/projects/ | grep -i <キーワードの断片>
 - **rollout ファイルは `session_meta` にシステムプロンプト（`base_instructions`）を含む場合がある**。一般的な語で全文検索すると注入された指示までヒットする。まず軽量な `~/.codex/history.jsonl` で当たりをつけ、`session_id` からファイルを特定する。ただし、見つからない場合は rollout など別の保存先も調べる
 - `history.jsonl` と `session_index.jsonl` は、どちらも全セッションを網羅するとは限らない。クライアント・保存設定・版・保持期間によって収録範囲が異なる。索引にないことを、セッションや入力が存在しない根拠にしない
 
-## 検索コマンド
+### Discord bridge
+
+標準の bridge state は `~/.local/state/codex-discord/`。
+異なる `stateDir` を使う構成では、設定の参照先を確認して helper に渡す。
+
+```text
+<stateDir>/channels/<parent-channel-id>/codex/sessions/**/*.jsonl
+<stateDir>/codex/sessions/**/*.jsonl  # チャンネル別状態へ移行する前の保存先がある場合
+<stateDir>/bridge.sqlite            # 元スレッド、session、workspace の対応
+```
+
+通常の Codex では `sessions/` に加え、存在する `archived_sessions/` も helper が検索する。
+bridge の DB は `mode=ro` と `query_only` で読む。
+DB 本体、WAL、transcript の内容は更新しない。SQLite が既存 SHM の reader 管理情報を更新する場合はある。
+WAL モードで必要な sidecar が欠けている場合は、再作成せず対応表を取得不能として示す。
+稼働中 daemon の WAL に最近の対応表があるため、`immutable=1` で古い本体だけを正本とみなさない。
+DB や履歴の修復、checkpoint、索引の書戻しは検索の操作に含めない。
+
+## 保存形式を直接調べる場合
 
 ### Claude Code 履歴
 
@@ -52,13 +110,11 @@ grep -rl "キーワード" ~/.claude/projects/ --include="*.jsonl" \
 # ファイルパスまで表示
 grep -rl "キーワード" ~/.claude/projects/ --include="*.jsonl"
 
-# プロジェクト名を実パスに変換して表示
-grep -rl "キーワード" ~/.claude/projects/ --include="*.jsonl" \
-  | sed 's|.*projects/\([^/]*\)/.*|\1|' | sort -u \
-  | sed 's|^-||; s|-|/|g'
 ```
 
-> 最後の変換は、ディレクトリ名の先頭の `-` を除去し、残りの `-` を `/` に戻す。ただし元の実パスに `.` が含まれていた場合は復元されない（`/` と `.` は両方 `-` に潰れているため一意に戻せない）。正確な実パスが必要なら `ls ~/.claude/projects/` の一覧と照合するか、`claude --resume` の候補一覧で確認する。
+Claude のプロジェクトキーは `/`、`.`、元からの `-` を区別できない。
+`-` を `/` に置換して実パスを捏造せず、helper の `cwd`、元 transcript の metadata、実在する候補ディレクトリを照合する。
+`cwd` がないときはキー名を候補のまま示す。
 
 ### Codex CLI 履歴
 
@@ -115,12 +171,15 @@ cd $HOME/<your-project> && claude
 # → /resume
 ```
 
-### Codex CLI
+### 通常の Codex
 
-session_id を直接指定できるので、ディレクトリ移動は不要。
+結果の `codex_home` と `cwd` を確認し、保存時の state directory を使って `codex resume <session_id>` を実行する。
+現在の `CODEX_HOME` が異なれば、通常の picker や UUID 指定だけではその履歴を見つけられない。
+検索だけを求められた場合は再開を実行せず、出典と再開先を返す。
 
-```bash
-codex resume <session_id>   # UUID 直接指定
-codex resume --last         # 直近セッションを継続
-codex resume                # picker で選択
-```
+### Discord 経由の Codex
+
+原則は結果の `channel_id` と `thread_ids` が示す元の Discord スレッドで続ける。
+専用の `codex_home` とコンテナー内 cwd があるため、通常の `~/.codex` に対して同じ UUID を渡しても同じ実行環境にはならない。
+ホスト上での再開を明示的に求められた場合は、元の state directory、workspace、認証、接続機器などの実行条件を確認する。
+履歴を移動したり、他チャンネルに状態や認証情報をコピーしたりして解消しない。
