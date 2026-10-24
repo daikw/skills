@@ -1,88 +1,75 @@
 ---
 name: history-search
-description: "Claude Code と Codex CLI 両方の会話履歴を全プロジェクト横断で検索する。過去のトピックをどちらのハーネスで話したか思い出せないとき、resume したいがディレクトリやセッションを忘れたときに使う。Claude Code / Codex CLI のどちらから起動しても、両方の履歴を検索対象にできる。単純なキーワード検索以外の分析的クエリ（エラー率集計・繰り返し検出等）は references/recipes.md を使う。ディレクトリ名から実パスを逆算するだけの用途なら対象外（後述の落とし穴があるので、まず ls で確認する）。キーワード: 履歴検索, history, resume, 過去の会話, codex 履歴, セッション検索"
+description: "Claude Code と Codex の会話履歴から、過去の話題、作業場所、再開するセッションを探す。ホストやコンテナなど実行環境によって保存先が異なる履歴の調査にも使う。集計や著者判定では収録範囲と来歴を確認する。履歴の移行は対象外。"
 ---
 
-# history-search - Claude Code / Codex CLI 履歴横断検索
+# 会話履歴の検索
 
-Claude Code と Codex CLI、両方の会話履歴を横断して検索するスキル。検索は素の `grep` / `find` なので、どちらのハーネスから起動しても同じ手順で両方の履歴を検索できる（起動元 × 検索先の 4 通りすべて同一手順）。ユーザーがハーネスを指定しない限り、両方の履歴を検索する。
+Claude Code と Codex の会話履歴を調べる。
+ユーザーが対象を指定していなければ、今回の調査範囲に関係する両方の履歴を確認する。
 
-## 履歴の保存場所
+## 検索範囲を確認する
+
+既定パスは候補であり、すべての履歴がそこにあるとは限らない。
+
+- 調査しているホストと、会話が実行された環境を確認する。コンテナや別の実行環境の内部にも履歴があり得る。
+- 実効 `CODEX_HOME`、起動設定、永続化先を確認する。コンテナの場合は volume や bind mount の対応から、コンテナ内の保存先とホスト側の参照先を区別する。個別環境の配置はその運用資料を参照する。
+- アクセスできる保存先を検索し、検索した範囲と、存在しない・読めない・未取得の範囲を区別する。見えている場所にないことだけで、会話が存在しないとは判断しない。
+- 保存先や元の実行環境を出典に残す。同じ session ID やコンテナ内の `/workspace` だけから、同じ会話やホストの実パスだと推測しない。
+
+検索のために履歴を移動・複製・更新したり、アクセス権限を広げたりしない。
+
+## 標準の保存形式
 
 ### Claude Code
 
-```
-~/.claude/projects/<プロジェクトパス>/   # ディレクトリ名は実パスの / と . を両方 - に置換
-    <session-uuid>.jsonl                 # 1ファイル = 1会話
-~/.claude/history.jsonl                  # グローバル履歴
-```
-
-**既知の落とし穴**: `/` だけでなく `.` も `-` に変換される。例えば `gitlab.example.com` は `gitlab-example-com` になる。「実パスの `/` を `-` に置換すればディレクトリ名になる」という思い込みで手で組み立てると、`.` の変換漏れで存在しないディレクトリを grep して `Exit code 2` になる（実際に踏んだ実障害）。
-
-**決め打ちで再構成せず、まず一覧から確認する**:
-
-```bash
-ls ~/.claude/projects/ | grep -i <キーワードの断片>
+```text
+~/.claude/projects/<project-key>/<session-id>.jsonl
+~/.claude/history.jsonl
 ```
 
-### Codex CLI
+project-key は元の実パスの `/` と `.` などを `-` に変換したもの。
+元からの `-` と区別できず、一意に逆変換できない。
+実在する保存先を一覧で確認し、正確な作業場所は transcript の `cwd` などの metadata と照合する。
 
-```
-~/.codex/sessions/<YYYY>/<MM>/<DD>/
-    rollout-<timestamp>-<session-uuid>.jsonl   # 1ファイル = 1セッション、日付別に格納
-~/.codex/history.jsonl        # 対応クライアントが保存した入力履歴 {session_id, ts(unix秒), text}
-~/.codex/session_index.jsonl  # セッション名の索引 {id, thread_name, updated_at}
-```
+### Codex
 
-**Claude Code と構造が根本的に違う点**（推測しにくいので明記）:
+`CODEX_HOME` が設定されていればその場所、未設定なら `~/.codex` が標準の state directory。
 
-- **プロジェクト別ではなく日付別**。ディレクトリにもファイル名にもプロジェクト情報がない。現行形式では、作業ディレクトリは rollout ファイル先頭行の `session_meta` に `"cwd":"..."` として入っている。古い形式では実際のフィールドを確認する
-- **rollout ファイルは `session_meta` にシステムプロンプト（`base_instructions`）を含む場合がある**。一般的な語で全文検索すると注入された指示までヒットする。まず軽量な `~/.codex/history.jsonl` で当たりをつけ、`session_id` からファイルを特定する。ただし、見つからない場合は rollout など別の保存先も調べる
-- `history.jsonl` と `session_index.jsonl` は、どちらも全セッションを網羅するとは限らない。クライアント・保存設定・版・保持期間によって収録範囲が異なる。索引にないことを、セッションや入力が存在しない根拠にしない
-
-## 検索コマンド
-
-### Claude Code 履歴
-
-```bash
-# マッチしたプロジェクト名だけ表示（基本）
-grep -rl "キーワード" ~/.claude/projects/ --include="*.jsonl" \
-  | sed 's|.*projects/\([^/]*\)/.*|\1|' | sort -u
-
-# ファイルパスまで表示
-grep -rl "キーワード" ~/.claude/projects/ --include="*.jsonl"
-
-# プロジェクト名を実パスに変換して表示
-grep -rl "キーワード" ~/.claude/projects/ --include="*.jsonl" \
-  | sed 's|.*projects/\([^/]*\)/.*|\1|' | sort -u \
-  | sed 's|^-||; s|-|/|g'
+```text
+<CODEX_HOME>/sessions/<YYYY>/<MM>/<DD>/rollout-<timestamp>-<session-id>.jsonl
+<CODEX_HOME>/archived_sessions/   # 存在する場合
+<CODEX_HOME>/history.jsonl
+<CODEX_HOME>/session_index.jsonl
 ```
 
-> 最後の変換は、ディレクトリ名の先頭の `-` を除去し、残りの `-` を `/` に戻す。ただし元の実パスに `.` が含まれていた場合は復元されない（`/` と `.` は両方 `-` に潰れているため一意に戻せない）。正確な実パスが必要なら `ls ~/.claude/projects/` の一覧と照合するか、`claude --resume` の候補一覧で確認する。
+rollout はプロジェクト別ではなく日付別。
+作業場所は通常、先頭付近の `session_meta` の `cwd` に記録される。
+版によって形式が異なるため、実際のフィールドを確認する。
+`history.jsonl` は入力履歴、`session_index.jsonl` は名前などの索引だが、全セッションを網羅するとは限らない。
 
-### Codex CLI 履歴
+## 検索例
 
-```bash
-# 1. 保存された入力テキストから検索して session_id を得る（軽量な入口）
-grep -i "キーワード" ~/.codex/history.jsonl
+実在する対象を選び、まずファイル名や metadata で候補を絞る。
+次は標準配置の例。別の state directory を確認した場合は、その保存先に置き換える。
 
-# 2. session_id から rollout 本体を特定（ファイル名末尾が session_id）
-find ~/.codex/sessions -name "*<session_id>.jsonl"
+```sh
+# Claude の会話ファイルを探す
+rg -l -i -F --glob '*.jsonl' -- 'キーワード' "$HOME/.claude/projects"
 
-# アシスタント応答まで含めて全文検索したい場合
-# （システムプロンプト由来の誤ヒットに注意。固有性の高い語で絞る）
-grep -rl "キーワード" ~/.codex/sessions --include="*.jsonl"
+# 現在の Codex state の会話ファイルを探す
+codex_state_dir="${CODEX_HOME:-$HOME/.codex}"
+rg -l -i -F --glob '*.jsonl' -- 'キーワード' "$codex_state_dir/sessions"
 
-# プロジェクト（cwd）でセッションを絞り込む
-grep -rl '"cwd":"[^"]*<プロジェクト名の断片>' ~/.codex/sessions --include="*.jsonl"
-
-# セッション名の索引を眺める（本文の発言履歴ではない）
-grep -i "キーワード" ~/.codex/session_index.jsonl
+# 索引や archive は、存在するものを必要に応じて確認する
+rg -l -i -F -- 'キーワード' "$codex_state_dir/history.jsonl" "$codex_state_dir/session_index.jsonl"
 ```
 
-## 単純なキーワード検索を超えた用途
+全文検索には、注入された指示やツール結果もヒットする。
+候補ファイルの該当箇所を読み、実際の発言と文脈を確認して結果を返す。
+検索語はデータとしてクォートし、`--` でオプションと区別する。
 
-エラー率の集計、同一文字列の異常反復（degeneration）検出、特定期間のセッション一覧など、grep 一発では終わらないクエリは [references/recipes.md](references/recipes.md) の再利用可能なレシピを参照する（Claude Code 履歴の jsonl 構造前提。Codex 履歴に流用する場合はフィールド名の読み替えが必要）。ゼロから正規表現を組み立て直すと試行錯誤が数回に及びやすい。
+分析的なクエリは [references/recipes.md](references/recipes.md) の保存形式に合うレシピを必要に応じて使う。
 
 ### 集計とプロンプトの著者判定
 
@@ -104,23 +91,9 @@ Codex の保存形式の確認には、公式実装の
 [履歴の投影](https://github.com/openai/codex/blob/45134c04632b971776d88edfdea71c051ebe4161/codex-rs/app-server-protocol/src/protocol/thread_history.rs)
 を参照できる（2026-09-09 確認版）。Claude の上記フィールドは同日のローカル transcript の観測例であり、両者とも全ての過去・将来の版への保証ではない。
 
-## resume へのつなぎ方
+## 再開先を案内する
 
-### Claude Code
-
-見つかったプロジェクトのディレクトリで起動して `/resume` する。
-
-```bash
-cd $HOME/<your-project> && claude
-# → /resume
-```
-
-### Codex CLI
-
-session_id を直接指定できるので、ディレクトリ移動は不要。
-
-```bash
-codex resume <session_id>   # UUID 直接指定
-codex resume --last         # 直近セッションを継続
-codex resume                # picker で選択
-```
+Claude Code は記録された作業場所とセッションを確認し、その環境の `/resume` を使う。
+Codex は session ID に加えて、保存時の state directory と作業場所を確認する。
+コンテナなどで実行された会話は、元の実行条件を確認してから再開先を案内する。
+検索依頼だけでは再開や投稿を実行しない。
