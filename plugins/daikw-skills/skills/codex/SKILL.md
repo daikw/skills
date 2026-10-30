@@ -21,23 +21,31 @@ description: "Codex CLIへ具体的な調査・レビュー・実装を委譲し
 
 ## 実行
 
-インストール済みの `codex exec --help` で対応フラグを確認し、認証済みのCLIを使う。
+インストール済みの `codex --help` と `codex exec --help` で、グローバル・`exec` 各オプションの配置を確認し、認証済みのCLIを使う。
 指定されたmodel/profileがあれば保持する。指定がなければ既存設定を使い、比較が目的なら実際に使われたmodelを結果と照合する。
 CLIが存在しない・認証できない場合は状況を報告し、設定変更や別modelへの置換を無言で行わない。
 
 複数行の依頼文はファイルに正確に書き、shellへ補間せずstdinで渡せる。
+一回限りの独立した委譲では、共有daemonと保存sessionを使わず、最終回答を進捗出力と分離する。
 次はこれらのフラグが利用できるversionでの例。
 
 ```sh
-codex exec --sandbox read-only --cd '<project-directory>' - < '<request-file>'
+codex --no-daemon --ask-for-approval never exec \
+  --sandbox read-only \
+  --cd '<project-directory>' \
+  --ephemeral \
+  --output-last-message '<result-file>' \
+  - < '<request-file>'
 ```
 
-ファイル変更が許可された委譲では、その範囲を含む作業用checkoutを選び、必要な場合だけ `--sandbox workspace-write` を使う。
+`--ask-for-approval never` は追加の権限を与えず、許可されていない操作を質問待ちにせず失敗させるために使う。read-onlyの委譲で書込みが必要になった場合は失敗として扱い、権限を広げて再実行しない。
+
+ファイル変更が許可された委譲では、その範囲を含む作業用checkoutを選び、必要な場合だけ `--sandbox workspace-write` を使う。sessionの継続や共有daemonが目的なら `--ephemeral` / `--no-daemon` を外す判断を明示し、別の実行を誤ってresumeしない。
 保護を迂回するフラグや未確認の互換フラグを追加しない。repo外で実行する明示的な理由があり、CLIが要求する場合だけ `--skip-git-repo-check` を使う。
 
 ## 結果を読む
 
-進捗を観察し、最終回答・終了状態・生成物を照合する。
+進捗を観察し、`--output-last-message` の出力、終了状態、生成物を照合する。結果ファイルは実行ごとに固有の場所を使い、古い結果を今回の回答として読まない。
 空の出力、idle表示、プロセス終了だけを有効なセカンドオピニオンや作業完了の証拠にしない。
 レビューは指摘箇所と根拠を評価し、実装ではdiffと関連検証を確認する。
 
